@@ -1,0 +1,222 @@
+import {
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Download,
+  Printer,
+  BookmarkPlus,
+} from 'lucide-react';
+import { useState } from 'react';
+
+interface DocumentViewerProps {
+  documentId: string | null;
+}
+
+function DocumentViewer({ documentId }: DocumentViewerProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [zoom, setZoom] = useState(100);
+  const totalPages = 25;
+
+  if (!documentId) {
+    return (
+      <div className="flex-1 bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-24 h-24 bg-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <BookmarkPlus className="w-12 h-12 text-slate-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-slate-900 mb-2">
+            No Document Selected
+          </h3>
+          <p className="text-slate-500 max-w-sm mx-auto">
+            Select a document from the sidebar or upload a new file to get started with AI-powered analysis.
+          </p>
+          <button className="mt-6 px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors">
+            Upload Document
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <main className="flex-1 bg-slate-100 flex flex-col">
+      <div className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-slate-900">NDA Agreement.pdf</h2>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Contract • 25 pages • Last modified 2 hours ago
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="p-1 text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-2 min-w-[100px] justify-center">
+                <input
+                  type="number"
+                  value={currentPage}
+                  onChange={(e) =>
+                    setCurrentPage(
+                      Math.max(1, Math.min(totalPages, parseInt(e.target.value) || 1))
+                    )
+                  }
+                  className="w-12 text-center text-sm font-medium text-slate-900 bg-transparent border-none focus:outline-none"
+                />
+                <span className="text-sm text-slate-500">/ {totalPages}</span>
+              </div>
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1 text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="w-px h-6 bg-slate-200"></div>
+
+            <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
+              <button
+                onClick={() => setZoom(Math.max(50, zoom - 10))}
+                className="p-1 text-slate-600 hover:text-slate-900"
+              >
+                <ZoomOut className="w-5 h-5" />
+              </button>
+              <span className="text-sm font-medium text-slate-900 min-w-[50px] text-center">
+                {zoom}%
+              </span>
+              <button
+                onClick={() => setZoom(Math.min(200, zoom + 10))}
+                className="p-1 text-slate-600 hover:text-slate-900"
+              >
+                <ZoomIn className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="w-px h-6 bg-slate-200"></div>
+
+            <button
+              title="Fit to screen"
+              className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+            >
+              <Maximize2 className="w-5 h-5" />
+            </button>
+
+            <button
+              title="Download"
+              className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+
+            <button
+              title="Print"
+              className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+            >
+              <Printer className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto p-8">
+        <div className="max-w-4xl mx-auto">
+          <div
+            className="bg-white rounded-lg shadow-sm border border-slate-200 p-12"
+            style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
+          >
+            <div className="prose prose-slate max-w-none">
+              <h1 className="text-2xl font-bold text-slate-900 mb-6">
+                NON-DISCLOSURE AGREEMENT
+              </h1>
+
+              <p className="text-slate-700 leading-relaxed mb-4">
+                This Non-Disclosure Agreement (the "Agreement") is entered into as of{' '}
+                <span className="font-semibold">January 15, 2024</span> (the "Effective Date")
+                by and between:
+              </p>
+
+              <div className="bg-slate-50 rounded-lg p-6 mb-6">
+                <p className="text-slate-700 mb-2">
+                  <span className="font-semibold">Party A:</span> TechCorp Industries Inc.
+                </p>
+                <p className="text-slate-700">
+                  <span className="font-semibold">Party B:</span> Innovation Solutions LLC
+                </p>
+              </div>
+
+              <h2 className="text-xl font-semibold text-slate-900 mt-8 mb-4">
+                1. Definition of Confidential Information
+              </h2>
+
+              <p className="text-slate-700 leading-relaxed mb-4">
+                For purposes of this Agreement, "Confidential Information" shall include all
+                information or material that has or could have commercial value or other utility
+                in the business in which Disclosing Party is engaged. If Confidential Information
+                is in written form, the Disclosing Party shall label or stamp the materials with
+                the word "Confidential" or some similar warning.
+              </p>
+
+              <h2 className="text-xl font-semibold text-slate-900 mt-8 mb-4">
+                2. Exclusions from Confidential Information
+              </h2>
+
+              <p className="text-slate-700 leading-relaxed mb-4">
+                Receiving Party's obligations under this Agreement do not extend to information
+                that is:
+              </p>
+
+              <ul className="list-disc list-inside space-y-2 text-slate-700 mb-4">
+                <li>
+                  Publicly known at the time of disclosure or subsequently becomes publicly known
+                  through no fault of the Receiving Party;
+                </li>
+                <li>
+                  Discovered or created by the Receiving Party before disclosure by Disclosing
+                  Party;
+                </li>
+                <li>
+                  Learned by the Receiving Party through legitimate means other than from the
+                  Disclosing Party or Disclosing Party's representatives;
+                </li>
+                <li>
+                  Disclosed by Receiving Party with Disclosing Party's prior written approval.
+                </li>
+              </ul>
+
+              <h2 className="text-xl font-semibold text-slate-900 mt-8 mb-4">
+                3. Obligations of Receiving Party
+              </h2>
+
+              <p className="text-slate-700 leading-relaxed mb-4">
+                Receiving Party shall hold and maintain the Confidential Information in strictest
+                confidence for the sole and exclusive benefit of the Disclosing Party. Receiving
+                Party shall carefully restrict access to Confidential Information to employees,
+                contractors and third parties as is reasonably required and shall require those
+                persons to sign nondisclosure restrictions at least as protective as those in this
+                Agreement.
+              </p>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 mt-8">
+                <p className="text-sm text-amber-900 font-medium">
+                  This is page {currentPage} of {totalPages}. Additional content continues below...
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+export default DocumentViewer;
