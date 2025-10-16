@@ -76,13 +76,13 @@ function AIPanel({ documentId, mode, onModeChange }: AIPanelProps) {
 
   if (!documentId) {
     return (
-      <aside className="w-96 bg-white border-l border-slate-200 flex items-center justify-center">
+      <aside className="w-96 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 flex items-center justify-center">
         <div className="text-center px-6">
-          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <MessageSquare className="w-8 h-8 text-slate-400" />
+          <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <MessageSquare className="w-8 h-8 text-slate-400 dark:text-slate-500" />
           </div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">AI Assistant Ready</h3>
-          <p className="text-sm text-slate-500">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">AI Assistant Ready</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Select a document to start analyzing and chatting with AI
           </p>
         </div>
@@ -91,11 +91,11 @@ function AIPanel({ documentId, mode, onModeChange }: AIPanelProps) {
   }
 
   return (
-    <aside className="w-96 bg-white border-l border-slate-200 flex flex-col">
-      <div className="border-b border-slate-200 p-4">
+    <aside className="w-96 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 flex flex-col">
+      <div className="border-b border-slate-200 dark:border-slate-700 p-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900">AI Assistant</h3>
-          <button className="p-1.5 text-slate-600 hover:bg-slate-50 rounded-lg">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">AI Assistant</h3>
+          <button className="p-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">
             <MoreVertical className="w-5 h-5" />
           </button>
         </div>
@@ -111,7 +111,7 @@ function AIPanel({ documentId, mode, onModeChange }: AIPanelProps) {
                 className={`flex flex-col items-center gap-1.5 p-3 rounded-lg transition-all ${
                   isActive
                     ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
                 <Icon className="w-5 h-5" />
@@ -154,14 +154,14 @@ function AIPanel({ documentId, mode, onModeChange }: AIPanelProps) {
                     className={`inline-block px-4 py-2.5 rounded-2xl ${
                       message.role === 'user'
                         ? 'bg-slate-900 text-white'
-                        : 'bg-slate-50 text-slate-900'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white'
                     }`}
                   >
                     <p className="text-sm leading-relaxed whitespace-pre-wrap">
                       {message.content}
                     </p>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1 px-2">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 px-2">
                     {message.timestamp.toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -172,8 +172,8 @@ function AIPanel({ documentId, mode, onModeChange }: AIPanelProps) {
             ))}
           </div>
 
-          <div className="p-4 border-t border-slate-200">
-            <div className="bg-slate-50 rounded-xl p-3 focus-within:ring-2 focus-within:ring-slate-900 focus-within:bg-white transition-all">
+          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 focus-within:ring-2 focus-within:ring-slate-900 dark:focus-within:ring-white focus-within:bg-white dark:focus-within:bg-slate-900 transition-all">
               <textarea
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
@@ -184,15 +184,15 @@ function AIPanel({ documentId, mode, onModeChange }: AIPanelProps) {
                   }
                 }}
                 placeholder="Ask about this document..."
-                className="w-full bg-transparent border-none resize-none focus:outline-none text-sm text-slate-900 placeholder-slate-400"
+                className="w-full bg-transparent border-none resize-none focus:outline-none text-sm text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500"
                 rows={3}
               />
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-1">
-                  <button className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg">
+                  <button className="p-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
                     <Paperclip className="w-4 h-4" />
                   </button>
-                  <button className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg">
+                  <button className="p-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
                     <Mic className="w-4 h-4" />
                   </button>
                 </div>
@@ -206,7 +206,7 @@ function AIPanel({ documentId, mode, onModeChange }: AIPanelProps) {
                 </button>
               </div>
             </div>
-            <p className="text-xs text-slate-400 text-center mt-3">
+            <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-3">
               AI can make mistakes. Verify important information.
             </p>
           </div>
@@ -373,12 +373,12 @@ function AIPanel({ documentId, mode, onModeChange }: AIPanelProps) {
 
 function SummarySection({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className="bg-slate-50 rounded-lg p-4">
-      <h5 className="text-sm font-semibold text-slate-900 mb-2">{title}</h5>
+    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
+      <h5 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">{title}</h5>
       <ul className="space-y-1.5">
         {items.map((item, index) => (
-          <li key={index} className="text-sm text-slate-700 flex items-start gap-2">
-            <span className="text-slate-400 mt-0.5">•</span>
+          <li key={index} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2">
+            <span className="text-slate-400 dark:text-slate-500 mt-0.5">•</span>
             <span>{item}</span>
           </li>
         ))}
@@ -397,14 +397,14 @@ function NoteCard({
   page: number;
 }) {
   return (
-    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer">
+    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors cursor-pointer">
       <div className="flex items-start justify-between mb-2">
-        <h5 className="text-sm font-semibold text-slate-900">{title}</h5>
-        <span className="text-xs text-slate-500 bg-slate-200 px-2 py-0.5 rounded">
+        <h5 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h5>
+        <span className="text-xs text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded">
           p. {page}
         </span>
       </div>
-      <p className="text-sm text-slate-600">{content}</p>
+      <p className="text-sm text-slate-600 dark:text-slate-300">{content}</p>
     </div>
   );
 }
@@ -415,13 +415,13 @@ function FlashcardItem({ question, answer }: { question: string; answer: string 
   return (
     <div
       onClick={() => setFlipped(!flipped)}
-      className="bg-white border-2 border-slate-200 rounded-lg p-6 cursor-pointer hover:border-slate-300 transition-all min-h-[160px] flex items-center justify-center"
+      className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-lg p-6 cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-all min-h-[160px] flex items-center justify-center"
     >
       <div className="text-center">
-        <p className="text-sm font-medium text-slate-900 mb-2">
+        <p className="text-sm font-medium text-slate-900 dark:text-white mb-2">
           {flipped ? 'Answer' : 'Question'}
         </p>
-        <p className="text-sm text-slate-700">{flipped ? answer : question}</p>
+        <p className="text-sm text-slate-700 dark:text-slate-300">{flipped ? answer : question}</p>
       </div>
     </div>
   );
@@ -440,12 +440,12 @@ function QuizOption({
     <button
       className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-all ${
         selected
-          ? 'border-slate-900 bg-slate-50'
-          : 'border-slate-200 hover:border-slate-300'
+          ? 'border-slate-900 bg-slate-50 dark:bg-slate-800'
+          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
       }`}
     >
-      <span className="font-semibold text-slate-900 mr-3">{label}.</span>
-      <span className="text-sm text-slate-700">{text}</span>
+      <span className="font-semibold text-slate-900 dark:text-white mr-3">{label}.</span>
+      <span className="text-sm text-slate-700 dark:text-slate-300">{text}</span>
     </button>
   );
 }
@@ -460,14 +460,14 @@ function GenerateOption({
   description: string;
 }) {
   return (
-    <button className="w-full text-left bg-slate-50 rounded-lg p-4 border border-slate-200 hover:border-slate-300 hover:bg-white transition-all group">
+    <button className="w-full text-left bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-slate-800 transition-all group">
       <div className="flex items-start gap-3">
-        <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-600 group-hover:bg-slate-900 group-hover:text-white group-hover:border-slate-900 transition-all">
+        <div className="p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 group-hover:bg-slate-900 group-hover:text-white group-hover:border-slate-900 transition-all">
           {icon}
         </div>
         <div className="flex-1">
-          <h5 className="text-sm font-semibold text-slate-900 mb-1">{title}</h5>
-          <p className="text-xs text-slate-600">{description}</p>
+          <h5 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">{title}</h5>
+          <p className="text-xs text-slate-600 dark:text-slate-400">{description}</p>
         </div>
       </div>
     </button>

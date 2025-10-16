@@ -33,15 +33,15 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
   };
 
   return (
-    <aside className="w-72 bg-white border-r border-slate-200 flex flex-col">
-      <div className="p-5 border-b border-slate-200">
+    <aside className="w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex flex-col">
+      <div className="p-5 border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-900 rounded-lg flex items-center justify-center">
             <FileText className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-slate-900">LegalAI</h1>
-            <p className="text-xs text-slate-500">Document Assistant</p>
+            <h1 className="text-lg font-semibold text-slate-900 dark:text-white">LegalAI</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Document Assistant</p>
           </div>
         </div>
       </div>
@@ -53,7 +53,7 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
             <span className="font-medium">New Chat</span>
           </button>
 
-          <button className="w-full flex items-center gap-3 px-4 py-3 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+          <button className="w-full flex items-center gap-3 px-4 py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
             <FolderPlus className="w-5 h-5" />
             <span className="font-medium">New Folder</span>
           </button>
@@ -62,7 +62,7 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
         <div className="px-4 py-3">
           <button
             onClick={() => setShowFolders(!showFolders)}
-            className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 w-full"
+            className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white w-full"
           >
             {showFolders ? (
               <ChevronDown className="w-4 h-4" />
@@ -119,7 +119,7 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
         )}
 
         <div className="px-4 py-3 mt-6">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 mb-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3">
             <MessageSquare className="w-4 h-4" />
             <span>RECENT CHATS</span>
           </div>
@@ -140,14 +140,14 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
         </div>
       </div>
 
-      <div className="p-4 border-t border-slate-200">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer">
-          <div className="w-9 h-9 bg-slate-200 rounded-full flex items-center justify-center">
-            <User className="w-5 h-5 text-slate-600" />
+      <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
+          <div className="w-9 h-9 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center">
+            <User className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-900 truncate">John Doe</p>
-            <p className="text-xs text-slate-500 truncate">john@example.com</p>
+            <p className="text-sm font-medium text-slate-900 dark:text-white truncate">John Doe</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">john@example.com</p>
           </div>
           <Settings className="w-5 h-5 text-slate-400" />
         </div>
@@ -169,14 +169,14 @@ function FolderItem({ name, expanded, onToggle, children }: FolderItemProps) {
     <div>
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-50 rounded-lg transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
       >
         {expanded ? (
           <ChevronDown className="w-4 h-4 text-slate-400" />
         ) : (
           <ChevronRight className="w-4 h-4 text-slate-400" />
         )}
-        <Folder className="w-4 h-4 text-slate-600" />
+        <Folder className="w-4 h-4 text-slate-600 dark:text-slate-400" />
         <span className="text-sm font-medium flex-1 text-left">{name}</span>
       </button>
       {expanded && <div className="ml-6 space-y-1 mt-1">{children}</div>}
@@ -197,8 +197,8 @@ function DocumentItem({ name, selected, onSelect }: DocumentItemProps) {
       onClick={onSelect}
       className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
         selected
-          ? 'bg-slate-100 text-slate-900'
-          : 'text-slate-600 hover:bg-slate-50'
+          ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white'
+          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
       }`}
     >
       <FileText className="w-4 h-4" />
@@ -220,8 +220,8 @@ function ChatItem({ name, selected, onSelect }: ChatItemProps) {
       onClick={onSelect}
       className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
         selected
-          ? 'bg-slate-100 text-slate-900'
-          : 'text-slate-600 hover:bg-slate-50'
+          ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white'
+          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
       }`}
     >
       <MessageSquare className="w-4 h-4" />

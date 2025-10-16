@@ -3,17 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   User,
-  Mail,
   Bell,
   Shield,
   CreditCard,
-  Settings,
   ArrowLeft,
   Save,
   Camera,
   Key,
-  Globe,
-  Moon,
   LogOut,
 } from 'lucide-react';
 
@@ -48,13 +44,13 @@ function Profile() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => navigate('/workspace')}
-              className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
+              className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
               <span>Back to Workspace</span>
@@ -62,7 +58,7 @@ function Profile() {
 
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
             >
               <LogOut className="w-5 h-5" />
               <span>Sign Out</span>
@@ -73,24 +69,24 @@ function Profile() {
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Account Settings</h1>
-          <p className="text-slate-600">Manage your account settings and preferences</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Account Settings</h1>
+          <p className="text-slate-600 dark:text-slate-400">Manage your account settings and preferences</p>
         </div>
 
         <div className="grid lg:grid-cols-4 gap-6">
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
               <div className="text-center mb-6">
                 <div className="relative inline-block">
                   <div className="w-24 h-24 bg-gradient-to-br from-slate-900 to-slate-700 rounded-full flex items-center justify-center text-white text-3xl font-bold">
                     JD
                   </div>
-                  <button className="absolute bottom-0 right-0 w-8 h-8 bg-white border-2 border-slate-200 rounded-full flex items-center justify-center hover:bg-slate-50 transition-colors">
-                    <Camera className="w-4 h-4 text-slate-600" />
+                  <button className="absolute bottom-0 right-0 w-8 h-8 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-full flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                    <Camera className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                   </button>
                 </div>
-                <h3 className="mt-4 text-lg font-semibold text-slate-900">{formData.name}</h3>
-                <p className="text-sm text-slate-600">{formData.email}</p>
+                <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">{formData.name}</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">{formData.email}</p>
               </div>
 
               <nav className="space-y-1">
@@ -101,7 +97,7 @@ function Profile() {
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                       activeTab === tab.id
                         ? 'bg-slate-900 text-white shadow-lg'
-                        : 'text-slate-600 hover:bg-slate-50'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                   >
                     <tab.icon className="w-5 h-5" />
@@ -113,73 +109,73 @@ function Profile() {
           </div>
 
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8">
               {activeTab === 'general' && (
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-6">General Information</h2>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">General Information</h2>
 
                   <div className="space-y-6">
                     <div className="grid md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Full Name
                         </label>
                         <input
                           type="text"
                           value={formData.name}
                           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Email Address
                         </label>
                         <input
                           type="email"
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Company
                         </label>
                         <input
                           type="text"
                           value={formData.company}
                           onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                          className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                           Role
                         </label>
                         <input
                           type="text"
                           value={formData.role}
                           onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                          className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Bio</label>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Bio</label>
                       <textarea
                         rows={4}
                         placeholder="Tell us about yourself..."
-                        className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white resize-none"
                       ></textarea>
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                      <button className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                      <button className="px-6 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                         Cancel
                       </button>
                       <button
@@ -196,56 +192,56 @@ function Profile() {
 
               {activeTab === 'security' && (
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-6">Security Settings</h2>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Security Settings</h2>
 
                   <div className="space-y-6">
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
                         Change Password
                       </h3>
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                             Current Password
                           </label>
                           <input
                             type="password"
-                            className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                            className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                             New Password
                           </label>
                           <input
                             type="password"
-                            className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                            className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                             Confirm New Password
                           </label>
                           <input
                             type="password"
-                            className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                            className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white"
                           />
                         </div>
                       </div>
                     </div>
 
-                    <div className="pt-6 border-t border-slate-200">
+                    <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
                       <h3 className="text-lg font-semibold text-slate-900 mb-4">
                         Two-Factor Authentication
                       </h3>
-                      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center">
                             <Key className="w-5 h-5 text-white" />
                           </div>
                           <div>
-                            <p className="font-medium text-slate-900">2FA Status</p>
-                            <p className="text-sm text-slate-600">Not enabled</p>
+                            <p className="font-medium text-slate-900 dark:text-white">2FA Status</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">Not enabled</p>
                           </div>
                         </div>
                         <button className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors">
@@ -254,7 +250,7 @@ function Profile() {
                       </div>
                     </div>
 
-                    <div className="flex justify-end pt-4 border-t border-slate-200">
+                    <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
                       <button className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-lg">
                         <Save className="w-4 h-4" />
                         <span>Update Security</span>
@@ -266,7 +262,7 @@ function Profile() {
 
               {activeTab === 'billing' && (
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-6">Billing & Subscription</h2>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Billing & Subscription</h2>
 
                   <div className="space-y-6">
                     <div className="p-6 bg-gradient-to-br from-slate-900 to-slate-700 text-white rounded-xl">
@@ -286,40 +282,40 @@ function Profile() {
                     </div>
 
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Payment Method</h3>
-                      <div className="p-4 border border-slate-200 rounded-lg flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Payment Method</h3>
+                      <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-8 bg-slate-900 rounded flex items-center justify-center text-white text-xs font-bold">
                             VISA
                           </div>
                           <div>
-                            <p className="font-medium text-slate-900">•••• •••• •••• 4242</p>
-                            <p className="text-sm text-slate-600">Expires 12/25</p>
+                            <p className="font-medium text-slate-900 dark:text-white">•••• •••• •••• 4242</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">Expires 12/25</p>
                           </div>
                         </div>
-                        <button className="text-sm text-slate-600 hover:text-slate-900">
+                        <button className="text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                           Update
                         </button>
                       </div>
                     </div>
 
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
                         Billing History
                       </h3>
                       <div className="space-y-2">
                         {[1, 2, 3].map((i) => (
                           <div
                             key={i}
-                            className="p-4 border border-slate-200 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-colors"
+                            className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                           >
                             <div>
-                              <p className="font-medium text-slate-900">Pro Plan - Monthly</p>
-                              <p className="text-sm text-slate-600">Jan {i}, 2025</p>
+                              <p className="font-medium text-slate-900 dark:text-white">Pro Plan - Monthly</p>
+                              <p className="text-sm text-slate-600 dark:text-slate-400">Jan {i}, 2025</p>
                             </div>
                             <div className="text-right">
-                              <p className="font-semibold text-slate-900">$29.00</p>
-                              <button className="text-sm text-slate-600 hover:text-slate-900">
+                              <p className="font-semibold text-slate-900 dark:text-white">$29.00</p>
+                              <button className="text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                                 Download
                               </button>
                             </div>
@@ -333,13 +329,13 @@ function Profile() {
 
               {activeTab === 'notifications' && (
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-6">
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">
                     Notification Preferences
                   </h2>
 
                   <div className="space-y-6">
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Email Notifications</h3>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Email Notifications</h3>
                       <div className="space-y-3">
                         {[
                           { label: 'Document analysis complete', enabled: true },
@@ -349,24 +345,24 @@ function Profile() {
                         ].map((item, i) => (
                           <div
                             key={i}
-                            className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                            className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                           >
-                            <span className="text-slate-700">{item.label}</span>
+                            <span className="text-slate-700 dark:text-slate-300">{item.label}</span>
                             <label className="relative inline-flex items-center cursor-pointer">
                               <input
                                 type="checkbox"
                                 defaultChecked={item.enabled}
                                 className="sr-only peer"
                               />
-                              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
+                              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-slate-300 dark:peer-focus:ring-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
                             </label>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="pt-6 border-t border-slate-200">
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                    <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
                         Push Notifications
                       </h3>
                       <div className="space-y-3">
@@ -376,23 +372,23 @@ function Profile() {
                         ].map((item, i) => (
                           <div
                             key={i}
-                            className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                            className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                           >
-                            <span className="text-slate-700">{item.label}</span>
+                            <span className="text-slate-700 dark:text-slate-300">{item.label}</span>
                             <label className="relative inline-flex items-center cursor-pointer">
                               <input
                                 type="checkbox"
                                 defaultChecked={item.enabled}
                                 className="sr-only peer"
                               />
-                              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-slate-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
+                              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-slate-300 dark:peer-focus:ring-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
                             </label>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="flex justify-end pt-4 border-t border-slate-200">
+                    <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
                       <button className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-lg">
                         <Save className="w-4 h-4" />
                         <span>Save Preferences</span>
