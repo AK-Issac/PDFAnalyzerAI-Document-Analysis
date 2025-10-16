@@ -10,7 +10,7 @@ function Workspace() {
   const [aiMode, setAiMode] = useState<'chat' | 'notes' | 'summary' | 'flashcards' | 'quiz' | 'generate'>('chat');
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50">
+    <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
       <TopBar />
 
       <div className="flex-1 flex overflow-hidden">
