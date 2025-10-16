@@ -94,7 +94,7 @@ function Landing() {
                 Pricing
               </a>
               <button
-                onClick={() => navigate('/workspace')}
+                onClick={() => navigate('/login')}
                 className="px-6 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
               >
                 Get Started
@@ -133,7 +133,7 @@ function Landing() {
                 Pricing
               </a>
               <button
-                onClick={() => navigate('/workspace')}
+                onClick={() => navigate('/login')}
                 className="w-full px-6 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all"
               >
                 Get Started
@@ -178,7 +178,7 @@ function Landing() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <button
-                onClick={() => navigate('/workspace')}
+                onClick={() => navigate('/login')}
                 className="group px-8 py-4 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 flex items-center gap-2"
               >
                 <span className="text-lg font-medium">Start Free Trial</span>
@@ -288,7 +288,7 @@ function Landing() {
               </div>
 
               <button
-                onClick={() => navigate('/workspace')}
+                onClick={() => navigate('/login')}
                 className="mt-8 group px-8 py-4 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all shadow-lg flex items-center gap-2"
               >
                 <span className="font-medium">Get Started Now</span>
@@ -370,7 +370,7 @@ function Landing() {
                 </li>
               </ul>
               <button
-                onClick={() => navigate('/workspace')}
+                onClick={() => navigate('/login')}
                 className="w-full px-6 py-3 border-2 border-slate-900 text-slate-900 rounded-xl hover:bg-slate-50 transition-all font-medium"
               >
                 Get Started
@@ -404,7 +404,7 @@ function Landing() {
                 </li>
               </ul>
               <button
-                onClick={() => navigate('/workspace')}
+                onClick={() => navigate('/login')}
                 className="w-full px-6 py-3 bg-white text-slate-900 rounded-xl hover:bg-slate-50 transition-all font-medium"
               >
                 Start Free Trial

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
   User,
   Mail,
@@ -18,19 +19,25 @@ import {
 
 function Profile() {
   const navigate = useNavigate();
+  const { signOut, user } = useAuth();
   const [activeTab, setActiveTab] = useState<'general' | 'security' | 'billing' | 'notifications'>(
     'general'
   );
 
   const [formData, setFormData] = useState({
     name: 'John Doe',
-    email: 'john.doe@example.com',
+    email: user?.email || 'john.doe@example.com',
     company: 'Legal Tech Inc.',
     role: 'Senior Attorney',
   });
 
   const handleSave = () => {
     console.log('Saving profile:', formData);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/login');
   };
 
   const tabs = [
@@ -53,7 +60,10 @@ function Profile() {
               <span>Back to Workspace</span>
             </button>
 
-            <button className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+            >
               <LogOut className="w-5 h-5" />
               <span>Sign Out</span>
             </button>
