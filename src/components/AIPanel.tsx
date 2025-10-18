@@ -55,9 +55,7 @@ function AIPanel({ documentId, mode, onModeChange }: AIPanelProps) {
     { id: 'chat', icon: MessageSquare, label: 'Chat' },
     { id: 'notes', icon: FileText, label: 'Notes' },
     { id: 'summary', icon: Lightbulb, label: 'Summary' },
-    { id: 'flashcards', icon: Brain, label: 'Flashcards' },
-    { id: 'quiz', icon: ListChecks, label: 'Quiz' },
-    { id: 'generate', icon: Sparkles, label: 'Generate' },
+    
   ];
 
   const handleSendMessage = () => {
