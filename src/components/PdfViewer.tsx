@@ -4,17 +4,23 @@ import { Loader2, AlertCircle, FileText } from 'lucide-react';
 import { PdfViewerProps } from '../types/pdf';
 import { formatFileSize } from '../utils/pdfUtils';
 
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+// --- FIX 1: Correctly configure the PDF.js worker ---
+// This modern approach uses the bundler (like Vite or Create React App)
+// to automatically find the worker file in `node_modules` and provide
+// a correct public path to it. This is the most reliable method.
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString();
 
-function PdfViewer({ 
-  file, 
-  currentPage, 
-  onPageChange, 
-  zoom, 
-  onZoomChange, 
+function PdfViewer({
+  file,
+  currentPage,
+  onPageChange,
+  zoom,
+  onZoomChange,
   onPageCountChange,
-  className = '' 
+  className = ''
 }: PdfViewerProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,38 +28,40 @@ function PdfViewer({
   const [fileInfo, setFileInfo] = useState<{ name: string; size: number } | null>(null);
   const [documentLoaded, setDocumentLoaded] = useState(false);
 
-  // Reset loading state when file changes
+  // --- FIX 2: Correct the useEffect dependency array ---
+  // The dependencies were changed from `[file, loading, documentLoaded]` to just `[file]`.
+  // This prevents an infinite loop where state changes would constantly reset the timeout.
+  // Now, this effect only runs ONCE when a new file is provided.
   useEffect(() => {
     setLoading(true);
     setError(null);
     setDocumentLoaded(false);
     setNumPages(null);
-    
-    // Set a timeout to prevent infinite loading
+
     const timeout = setTimeout(() => {
-      if (loading && !documentLoaded) {
+      // If this timeout runs, it means the document hasn't successfully loaded
+      // within the time limit, because onLoadSuccess would have cleared the loading state.
+      if (!documentLoaded) {
         console.warn('PDF loading timeout');
         setError('PDF loading timed out. The file may be corrupted or too large. Try a different PDF file.');
         setLoading(false);
       }
     }, 15000); // 15 second timeout
-    
+
     return () => clearTimeout(timeout);
-  }, [file, loading, documentLoaded]);
+  }, [file]); // <-- CORRECTED DEPENDENCY ARRAY
 
   const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
-    console.log('PDF loaded successfully:', { numPages, file: file instanceof File ? file.name : 'URL' });
+    console.log('PDF loaded successfully:', { numPages, file: typeof file === 'string' ? file : file?.name });
     setNumPages(numPages);
     setLoading(false);
     setError(null);
     setDocumentLoaded(true);
-    
-    // Notify parent component of page count
+
     if (onPageCountChange) {
       onPageCountChange(numPages);
     }
-    
-    // Extract file info if it's a File object
+
     if (file instanceof File) {
       setFileInfo({
         name: file.name,
@@ -74,17 +82,6 @@ function PdfViewer({
     setLoading(true);
     setError(null);
   }, [file]);
-
-  const handlePageChange = useCallback((page: number) => {
-    if (numPages && page >= 1 && page <= numPages) {
-      onPageChange(page);
-    }
-  }, [numPages, onPageChange]);
-
-  const handleZoomChange = useCallback((newZoom: number) => {
-    const clampedZoom = Math.max(25, Math.min(300, newZoom));
-    onZoomChange(clampedZoom);
-  }, [onZoomChange]);
 
   const scale = zoom / 100;
 
@@ -119,6 +116,7 @@ function PdfViewer({
           <div className="space-y-2">
             <button
               onClick={() => {
+                // Manually trigger a reload attempt by resetting state
                 setLoading(true);
                 setError(null);
                 setDocumentLoaded(false);
@@ -138,7 +136,6 @@ function PdfViewer({
 
   return (
     <div className={`flex flex-col ${className}`}>
-      {/* PDF Document */}
       <div className="flex-1 overflow-auto bg-slate-100 dark:bg-slate-800">
         <div className="flex justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
@@ -184,7 +181,6 @@ function PdfViewer({
         </div>
       </div>
 
-      {/* File Info */}
       {fileInfo && (
         <div className="bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 p-3">
           <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">

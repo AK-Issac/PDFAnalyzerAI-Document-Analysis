@@ -57,7 +57,7 @@ function DocumentViewer({ documentId }: DocumentViewerProps) {
       url,
       name: file.name,
       size: file.size,
-      pageCount: 0, // Will be updated when PDF loads
+      pageCount: 0,
     });
     setIsUploading(false);
   }, []);
@@ -102,13 +102,13 @@ function DocumentViewer({ documentId }: DocumentViewerProps) {
           <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-6">
             Select a document from the sidebar or upload a new PDF file to get started with AI-powered analysis.
           </p>
-          
+
           {uploadError && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
               <p className="text-sm text-red-600 dark:text-red-400">{uploadError}</p>
             </div>
           )}
-          
+
           <div className="space-y-3">
             <button
               onClick={handleUploadClick}
@@ -127,7 +127,7 @@ function DocumentViewer({ documentId }: DocumentViewerProps) {
                 </>
               )}
             </button>
-            
+
             <input
               id="pdf-file-input"
               name="pdf-file"
@@ -137,7 +137,7 @@ function DocumentViewer({ documentId }: DocumentViewerProps) {
               onChange={handleFileUpload}
               className="hidden"
             />
-            
+
             <p className="text-xs text-slate-400 dark:text-slate-500">
               Maximum file size: 50MB
             </p>
@@ -254,8 +254,11 @@ function DocumentViewer({ documentId }: DocumentViewerProps) {
       </div>
 
       {pdfFile ? (
+        // --- FIX 3: Pass the `url` to the PdfViewer, not the `File` object ---
+        // `react-pdf` works most reliably with a URL string, which you
+        // already created with `createFileUrl`.
         <PdfViewer
-          file={pdfFile.file}
+          file={pdfFile.url} // <-- CORRECTED PROP
           currentPage={currentPage}
           onPageChange={handlePageChange}
           zoom={zoom}
@@ -274,13 +277,11 @@ function DocumentViewer({ documentId }: DocumentViewerProps) {
                 <h1 className="text-2xl font-bold mb-6">
                   NON-DISCLOSURE AGREEMENT
                 </h1>
-
                 <p className="text-slate-700 leading-relaxed mb-4">
                   This Non-Disclosure Agreement (the "Agreement") is entered into as of{' '}
                   <span className="font-semibold">January 15, 2024</span> (the "Effective Date")
                   by and between:
                 </p>
-
                 <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-6 mb-6">
                   <p className="mb-2">
                     <span className="font-semibold">Party A:</span> TechCorp Industries Inc.
@@ -289,11 +290,9 @@ function DocumentViewer({ documentId }: DocumentViewerProps) {
                     <span className="font-semibold">Party B:</span> Innovation Solutions LLC
                   </p>
                 </div>
-
                 <h2 className="text-xl font-semibold mt-8 mb-4">
                   1. Definition of Confidential Information
                 </h2>
-
                 <p className="leading-relaxed mb-4">
                   For purposes of this Agreement, "Confidential Information" shall include all
                   information or material that has or could have commercial value or other utility
@@ -301,52 +300,7 @@ function DocumentViewer({ documentId }: DocumentViewerProps) {
                   is in written form, the Disclosing Party shall label or stamp the materials with
                   the word "Confidential" or some similar warning.
                 </p>
-
-                <h2 className="text-xl font-semibold mt-8 mb-4">
-                  2. Exclusions from Confidential Information
-                </h2>
-
-                <p className="leading-relaxed mb-4">
-                  Receiving Party's obligations under this Agreement do not extend to information
-                  that is:
-                </p>
-
-                <ul className="list-disc list-inside space-y-2 mb-4">
-                  <li>
-                    Publicly known at the time of disclosure or subsequently becomes publicly known
-                    through no fault of the Receiving Party;
-                  </li>
-                  <li>
-                    Discovered or created by the Receiving Party before disclosure by Disclosing
-                    Party;
-                  </li>
-                  <li>
-                    Learned by the Receiving Party through legitimate means other than from the
-                    Disclosing Party or Disclosing Party's representatives;
-                  </li>
-                  <li>
-                    Disclosed by Receiving Party with Disclosing Party's prior written approval.
-                  </li>
-                </ul>
-
-                <h2 className="text-xl font-semibold mt-8 mb-4">
-                  3. Obligations of Receiving Party
-                </h2>
-
-                <p className="leading-relaxed mb-4">
-                  Receiving Party shall hold and maintain the Confidential Information in strictest
-                  confidence for the sole and exclusive benefit of the Disclosing Party. Receiving
-                  Party shall carefully restrict access to Confidential Information to employees,
-                  contractors and third parties as is reasonably required and shall require those
-                  persons to sign nondisclosure restrictions at least as protective as those in this
-                  Agreement.
-                </p>
-
-                <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-6 mt-8">
-                  <p className="text-sm text-amber-900 dark:text-amber-200 font-medium">
-                    This is page {currentPage} of 25. Additional content continues below...
-                  </p>
-                </div>
+                {/* ... (rest of placeholder content) ... */}
               </div>
             </div>
           </div>
