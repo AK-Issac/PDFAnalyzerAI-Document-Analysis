@@ -1,0 +1,18 @@
+# Flask for the web server
+Flask
+Flask-Cors
+
+# Environment variable management
+python-dotenv
+
+# The core AI and PDF libraries
+openai
+langchain
+langchain-openai
+
+# PDF text extraction
+PyMuPDF
+
+# Vector store and embeddings
+faiss-cpu
+tiktoken
