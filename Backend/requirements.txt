@@ -9,6 +9,8 @@ python-dotenv
 openai
 langchain
 langchain-openai
+langchain-text-splitters
+langchain-community     # <-- ADD THIS LINE
 
 # PDF text extraction
 PyMuPDF
