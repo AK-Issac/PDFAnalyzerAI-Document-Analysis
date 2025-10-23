@@ -1,7 +1,8 @@
 
 // src/components/Sidebar.tsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect,  } from 'react';
+import { useNavigate } from 'react-router-dom'; // <-- ADD THIS IMPORT
 import {
   FileText,
   Folder,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase'; // Make sure this path is correct
 import { useAuth } from '../contexts/AuthContext'; // Assuming you have an AuthContext
+
 
 // --- DATA TYPES (can be moved to a separate file) ---
 type FolderType = {
@@ -52,6 +54,7 @@ interface SidebarProps {
 function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectChat }: SidebarProps) {
   // --- STATE MANAGEMENT ---
   const { user } = useAuth(); // Get the current user from your auth context
+  const navigate = useNavigate();
 
   // State for raw data from Supabase
   const [folders, setFolders] = useState<FolderType[]>([]);
@@ -244,13 +247,18 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
 
       {/* User profile section remains the same */}
       <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
+        {/* --- THIS IS THE DIV TO MODIFY --- */}
+        <div 
+          onClick={() => navigate('/profile')} // <-- ADD THIS ONCLICK HANDLER
+          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+        >
             <div className="w-9 h-9 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center">
                 <User className="w-5 h-5 text-slate-600 dark:text-slate-300" />
             </div>
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{user?.email || 'User'}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">john@example.com</p>
+                {/* I've removed the hardcoded email for a placeholder */}
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">View profile settings</p>
             </div>
             <Settings className="w-5 h-5 text-slate-400" />
         </div>
