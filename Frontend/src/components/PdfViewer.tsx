@@ -65,7 +65,6 @@ function PdfViewer({ fileUrl, zoom, onTextSelect, onPageCountChange, onPageChang
               scale={zoom / 100} // Apply the zoom level from the parent
               className="mb-4 shadow-lg"
               renderTextLayer={true}
-              onInView={() => onPageChange(index + 1)} // Update current page when it comes into view
             />
           ))}
         </Document>
