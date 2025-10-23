@@ -127,6 +127,7 @@ function Workspace() {
         />
         <DocumentViewer 
           onUploadSuccess={handleUploadSuccess} 
+          onSummarize={handleSummarizeSelection}
         />
         <AIPanel
           documentId={docId}

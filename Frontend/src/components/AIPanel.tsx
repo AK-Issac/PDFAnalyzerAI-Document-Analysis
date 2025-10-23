@@ -1,4 +1,4 @@
-import { MessageSquare, Send, Sparkles } from 'lucide-react';
+import { MessageSquare, Send } from 'lucide-react';
 import { useState } from 'react';
 import { Message } from '../pages/Workspace'; // Import the Message type
 
@@ -7,7 +7,6 @@ interface AIPanelProps {
   messages: Message[];
   onSendMessage: (question: string) => void;
   isLoading: boolean;
-  // Make sure you add mode and onModeChange back if you use them
 }
 
 function AIPanel({ documentId, messages, onSendMessage, isLoading }: AIPanelProps) {
@@ -79,7 +78,12 @@ function AIPanel({ documentId, messages, onSendMessage, isLoading }: AIPanelProp
             className="w-full p-2 pr-10 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-slate-500 dark:focus:ring-slate-400 outline-none"
             disabled={isLoading}
           />
-          <button onClick={handleSend} disabled={isLoading || !input-message.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-50">
+          {/* --- THIS IS THE CORRECTED LINE --- */}
+          <button 
+            onClick={handleSend} 
+            disabled={isLoading || !inputMessage.trim()} 
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-50"
+          >
             <Send className="w-5 h-5" />
           </button>
         </div>
