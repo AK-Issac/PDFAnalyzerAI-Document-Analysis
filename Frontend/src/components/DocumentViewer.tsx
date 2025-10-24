@@ -1,8 +1,8 @@
 // src/components/DocumentViewer.tsx
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, BookmarkPlus, X, ZoomIn, ZoomOut, Highlighter } from 'lucide-react';
-import PdfViewer from './PdfViewer';
+import { Upload, BookmarkPlus, X, ZoomIn, ZoomOut, Highlighter, Trash2 } from 'lucide-react';
+import PdfViewer, { Highlight } from './PdfViewer'; // Import the new Highlight type
 import { uploadPdf } from '../services/apiService';
 
 // Defines the structure for the state holding the uploaded file
@@ -22,10 +22,11 @@ function DocumentViewer({ onUploadSuccess, onSummarize }: DocumentViewerProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- State for the professional UI controls ---
+  // --- State for the UI controls ---
   const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [zoom, setZoom] = useState(100); // Start at 100% zoom
+  const [zoom, setZoom] = useState(100);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
 
   // --- Handlers for User Actions ---
 
@@ -35,16 +36,10 @@ function DocumentViewer({ onUploadSuccess, onSummarize }: DocumentViewerProps) {
 
     setIsUploading(true);
     try {
-      // 1. Call the API service to upload the file and get the docId
       const result = await uploadPdf(file);
-      
-      // 2. Notify the parent component (Workspace) of the success and the new ID
       onUploadSuccess(result.doc_id);
-      
-      // 3. Create a temporary local URL to display the PDF without re-downloading
       const url = URL.createObjectURL(file);
       setPdfFile({ file, url });
-
     } catch (error) {
       console.error("Error uploading file:", error);
       alert("Failed to upload the file. Please check the console and ensure the backend is running.");
@@ -53,35 +48,37 @@ function DocumentViewer({ onUploadSuccess, onSummarize }: DocumentViewerProps) {
     }
   }, [onUploadSuccess]);
 
-  // Effect to clean up the temporary URL and prevent memory leaks
+  // Effect to clean up the temporary URL to prevent memory leaks
   useEffect(() => {
-    return () => {
-      if (pdfFile) {
-        URL.revokeObjectURL(pdfFile.url);
-      }
-    };
+    return () => { if (pdfFile) URL.revokeObjectURL(pdfFile.url); };
   }, [pdfFile]);
 
-  // Resets the viewer to its initial state
+  // Resets the viewer to its initial state when a file is closed
   const handleRemoveFile = () => {
     setPdfFile(null);
+    setHighlights([]);
     setTotalPages(0);
     setCurrentPage(1);
     setZoom(100);
-    // You could also call a function here to clear the docId in Workspace if needed
   };
 
-  // Programmatically clicks the hidden file input
   const handleUploadClick = () => fileInputRef.current?.click();
   
-  // Updates the zoom state, keeping it within a reasonable range
   const handleZoomChange = (newZoom: number) => {
-    setZoom(Math.max(25, Math.min(newZoom, 300))); // Clamp between 25% and 300%
+    setZoom(Math.max(25, Math.min(newZoom, 300))); // Clamp zoom
+  };
+  
+  // Adds a new highlight from the child and triggers the summarize logic in Workspace
+  const handleAddHighlight = (highlight: Highlight) => {
+    setHighlights(prev => [...prev, highlight]);
+    onSummarize(highlight.text); 
+  };
+
+  const clearHighlights = () => {
+    setHighlights([]);
   };
 
   // --- Conditional Rendering ---
-
-  // If no file is loaded, show the upload placeholder
   if (!pdfFile) {
     return (
       <main className="flex-1 bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
@@ -108,7 +105,6 @@ function DocumentViewer({ onUploadSuccess, onSummarize }: DocumentViewerProps) {
     );
   }
 
-  // If a file IS loaded, show the professional viewer UI
   return (
     <main className="flex-1 bg-slate-200 dark:bg-slate-950 flex flex-col overflow-hidden">
       {/* TOP CONTROL BAR */}
@@ -139,9 +135,20 @@ function DocumentViewer({ onUploadSuccess, onSummarize }: DocumentViewerProps) {
             </button>
           </div>
           <div className="w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
-          <button title="Highlight Text (Coming Soon)" className="p-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md cursor-not-allowed opacity-50">
-            <Highlighter className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="p-1 text-amber-500 flex items-center gap-2" title={`${highlights.length} highlights`}>
+              <Highlighter className="w-5 h-5" />
+              <span className="text-sm font-semibold">{highlights.length}</span>
+            </div>
+            <button 
+              onClick={clearHighlights} 
+              title="Clear All Highlights" 
+              disabled={highlights.length === 0}
+              className="p-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
       
@@ -149,7 +156,8 @@ function DocumentViewer({ onUploadSuccess, onSummarize }: DocumentViewerProps) {
       <PdfViewer 
         fileUrl={pdfFile.url} 
         zoom={zoom}
-        onTextSelect={onSummarize}
+        highlights={highlights}
+        onAddHighlight={handleAddHighlight}
         onPageCountChange={setTotalPages}
         onPageChange={setCurrentPage}
       />
