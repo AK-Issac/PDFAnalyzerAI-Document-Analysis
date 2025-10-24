@@ -1,3 +1,5 @@
+# app/services/ai_service.py
+from flask import current_app
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -6,14 +8,38 @@ def get_answer_from_llm(chunks, question: str) -> str:
     """
     Constructs a detailed prompt and gets an answer from the LLM.
     """
+    # Combine the content of the retrieved chunks into a single context string.
+    # We include the page number metadata to help the LLM with citations.
     context = "\n\n---\n\n".join([f"Source (Page {chunk.metadata.get('page', 'N/A')}): {chunk.page_content}" for chunk in chunks])
+
+    # The prompt template is the instruction manual for the AI.
     prompt_template = ChatPromptTemplate.from_messages([
-        ("system", """You are a world-class legal AI assistant. Your task is to answer the user's question based *only* on the provided context.\n\n        Guidelines:\n        - Answer the question using only the information from the 'Context' below.\n        - Do not use any outside knowledge.\n        - If the answer is not found in the context, you must state: \"I could not find an answer in the provided document.\"\n        - For every piece of information you use, you MUST cite the page number it came from using the format (Page X). A citation is required for every claim.\n\n        Context:\n        {context}"""),
+        ("system", """You are a world-class legal AI assistant. Your task is to answer the user's question based *only* on the provided context.
+
+        Guidelines:
+        - Answer the question using only the information from the 'Context' below.
+        - Do not use any outside knowledge.
+        - If the answer is not found in the context, you must state: "I could not find an answer in the provided document."
+        - For every piece of information you use, you MUST cite the page number it came from using the format (Page X). A citation is required for every claim.
+
+        Context:
+        {context}"""),
         ("human", "{question}")
     ])
-    llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
+    
+    # --- THIS IS THE FIX ---
+    # We explicitly get the API key from the Flask app's configuration.
+    api_key = current_app.config['OPENAI_API_KEY']
+    
+    # We pass the key directly when initializing the ChatOpenAI client.
+    llm = ChatOpenAI(model="gpt-4-turbo", temperature=0, openai_api_key=api_key)
+    
+    # Create the processing chain.
     chain = prompt_template | llm | StrOutputParser()
+    
+    # Invoke the chain with the necessary information.
     answer = chain.invoke({"context": context, "question": question})
+    
     return answer
 
 def summarize_text(text: str, description: str = "") -> str:
@@ -33,6 +59,7 @@ def summarize_text(text: str, description: str = "") -> str:
         ("human", "{full_input}")
     ])
     
+    # This part is already correct from the previous fix.
     api_key = current_app.config['OPENAI_API_KEY']
     llm = ChatOpenAI(model="gpt-4-turbo", temperature=0, openai_api_key=api_key)
     
