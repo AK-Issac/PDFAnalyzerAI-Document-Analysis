@@ -66,15 +66,16 @@ def query_document():
 @api_blueprint.route('/summarize', methods=['POST'])
 def summarize_text():
     """
-    Summarizes a piece of user-selected text.
+    Summarizes a piece of user-selected text, with an optional description.
     """
     data = request.get_json()
-    selected_text = data.get('selected_text')
+    highlighted_text = data.get('text')
+    description = data.get('description', "") # Default to an empty string if not provided
 
-    if not selected_text:
-        return jsonify({"error": "'selected_text' is required"}), 400
+    if not highlighted_text:
+        return jsonify({"error": "'text' is required"}), 400
         
-    # Call the AI Service to generate a summary
-    summary = ai_service.summarize_text(selected_text)
+    # Call the AI Service with both arguments
+    summary = ai_service.summarize_text(text=highlighted_text, description=description)
     
     return jsonify({"summary": summary}), 200

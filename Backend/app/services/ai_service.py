@@ -16,15 +16,28 @@ def get_answer_from_llm(chunks, question: str) -> str:
     answer = chain.invoke({"context": context, "question": question})
     return answer
 
-def summarize_text(text: str) -> str:
+def summarize_text(text: str, description: str = "") -> str:
     """
-    Summarizes the provided text using a specific prompt.
+    Summarizes the provided text, using an optional description to guide the summary.
     """
+    # If the user provides a description, combine it with the text for a better prompt.
+    if description:
+        full_input = f"User's request: '{description}'\n\nText to summarize:\n---\n{text}"
+        system_prompt = "You are an expert at summarizing legal and technical documents. Provide a clear, concise summary of the following text, paying close attention to the user's specific request."
+    else:
+        full_input = text
+        system_prompt = "You are an expert at summarizing legal text. Condense the following text into a clear, concise, and easy-to-understand summary."
+
     prompt_template = ChatPromptTemplate.from_messages([
-        ("system", "You are an expert at summarizing legal text. Condense the following text into a clear, concise, and easy-to-understand summary."),
-        ("human", "{text}")
+        ("system", system_prompt),
+        ("human", "{full_input}")
     ])
-    llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
+    
+    api_key = current_app.config['OPENAI_API_KEY']
+    llm = ChatOpenAI(model="gpt-4-turbo", temperature=0, openai_api_key=api_key)
+    
     chain = prompt_template | llm | StrOutputParser()
-    summary = chain.invoke({"text": text})
+    
+    summary = chain.invoke({"full_input": full_input})
+    
     return summary

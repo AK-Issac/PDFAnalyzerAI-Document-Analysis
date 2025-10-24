@@ -42,15 +42,16 @@ export async function queryDocument(doc_id: string, question: string) {
 }
 
 /**
- * Sends selected text to the backend for summarization.
- * @param selected_text The text selected by the user.
+ * Sends selected text and an optional description to the backend for summarization.
+ * @param text The text selected by the user.
+ * @param description The user's specific request about the summary.
  * @returns The JSON response from the server, including the summary.
  */
-export async function summarizeText(selected_text: string) {
+export async function summarizeText(text: string, description: string) {
   const response = await fetch(`${BASE_URL}/summarize`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ selected_text }),
+    body: JSON.stringify({ text, description }), // Send both fields
   });
 
   if (!response.ok) {
