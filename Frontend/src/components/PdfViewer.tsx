@@ -18,6 +18,8 @@ export type HighlightRect = {
   height: number;
 };
 
+
+
 // Defines a complete highlight, which can be made of multiple rectangles
 export type Highlight = {
   id: string;
