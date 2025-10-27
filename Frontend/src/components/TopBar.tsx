@@ -119,10 +119,14 @@ function TopBar() {
 
         <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
 
-        <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg hover:from-amber-600 hover:to-amber-700 transition-all shadow-sm">
+        <button 
+          onClick={() => navigate('/upgrade')} // <-- ADD THE ONCLICK HANDLER
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg hover:from-amber-600 hover:to-amber-700 transition-all shadow-sm"
+        >
           <Crown className="w-4 h-4" />
           <span className="text-sm font-medium">Upgrade</span>
         </button>
+
 
         <button
           title="Profile"
