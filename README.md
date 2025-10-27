@@ -2,7 +2,7 @@
 
 # **AI Legal Document Analyzer**
 
-Chat with your PDFs using a powerful **Retrieval-Augmented Generation (RAG)** backend built with **Python, Flask, and LangChain**, and a responsive **React + Vite** frontend.
+Chat with your PDFs using a powerful **Retrieval-Augmented Generation (RAG)** backend built with **Python, Flask, and LangChain**, and a responsive **React + Vite** frontend using APIs and Storage.
 This project transforms how you interact with dense legal documents. Instead of manually searching through pages, you can upload a PDF and ask questions in plain English. The AI reads, locates, and cites relevant sections instantly.
 
 *(Replace this section with a screenshot of your running app)*
