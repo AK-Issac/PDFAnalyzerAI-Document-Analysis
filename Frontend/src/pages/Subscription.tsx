@@ -27,7 +27,7 @@ function Subscription() {
       description: 'For professionals and teams.',
       features: [
         'Unlimited document uploads',
-        'Advanced AI features (summarization, analysis)',
+        'Advanced AI features (summarization, analysis, superior models)',
         'Highlighting and notes functionality',
         'Priority email support',
         'Early access to new features',
