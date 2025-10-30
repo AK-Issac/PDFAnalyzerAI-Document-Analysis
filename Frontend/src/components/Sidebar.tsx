@@ -1,8 +1,7 @@
-
 // src/components/Sidebar.tsx
 
-import { useState, useEffect,  } from 'react';
-import { useNavigate } from 'react-router-dom'; // <-- ADD THIS IMPORT
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   FileText,
   Folder,
@@ -13,14 +12,14 @@ import {
   ChevronRight,
   User,
   Settings,
-  Loader2, // For loading state
-  AlertCircle, // For error state
+  Loader2,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase'; // Make sure this path is correct
 import { useAuth } from '../contexts/AuthContext'; // Assuming you have an AuthContext
 
-
-// --- DATA TYPES (can be moved to a separate file) ---
+// --- DATA TYPES ---
 type FolderType = {
   id: string;
   name: string;
@@ -38,9 +37,7 @@ type ChatType = {
   title: string;
 };
 
-// A combined type for our structured data
 type FolderWithDocuments = FolderType & { documents: DocumentType[] };
-
 
 // --- COMPONENT PROPS ---
 interface SidebarProps {
@@ -48,12 +45,12 @@ interface SidebarProps {
   selectedChat: string | null;
   onSelectDocument: (id: string) => void;
   onSelectChat: (id: string) => void;
+  onNewChat: () => void;
+  refreshKey: boolean; // A key from the parent to trigger re-fetching
 }
 
-
-function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectChat }: SidebarProps) {
-  // --- STATE MANAGEMENT ---
-  const { user } = useAuth(); // Get the current user from your auth context
+function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectChat, onNewChat, refreshKey }: SidebarProps) {
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   // State for raw data from Supabase
@@ -61,64 +58,73 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
   const [documents, setDocuments] = useState<DocumentType[]>([]);
   const [chats, setChats] = useState<ChatType[]>([]);
 
-  // State for UI
+  // State for UI and data fetching
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const [showFolders, setShowFolders] = useState(true);
-
-  // State for data fetching status
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Fetches all necessary data for the sidebar from Supabase.
+   * Can be called manually to refresh.
+   */
+  const fetchData = async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [foldersRes, docsRes, chatsRes] = await Promise.all([
+        supabase.from('folders').select('id, name, parent_id').eq('user_id', user.id),
+        supabase.from('documents').select('id, title, folder_id').eq('user_id', user.id),
+        supabase.from('chats').select('id, title').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(10),
+      ]);
+
+      if (foldersRes.error) throw foldersRes.error;
+      if (docsRes.error) throw docsRes.error;
+      if (chatsRes.error) throw chatsRes.error;
+
+      setFolders(foldersRes.data || []);
+      setDocuments(docsRes.data || []);
+      setChats(chatsRes.data || []);
+    } catch (err: any) {
+      console.error("Error fetching sidebar data:", err);
+      setError("Failed to load workspace.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // --- DATA FETCHING EFFECT ---
+  // Runs when the component mounts, the user changes, or the refreshKey is toggled.
   useEffect(() => {
-    if (!user) return; // Don't fetch if user is not logged in
-
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        // Fetch folders, documents, and recent chats in parallel for efficiency
-        const [foldersResponse, documentsResponse, chatsResponse] = await Promise.all([
-          supabase.from('folders').select('id, name, parent_id').eq('user_id', user.id),
-          supabase.from('documents').select('id, title, folder_id').eq('user_id', user.id),
-          supabase.from('chats').select('id, title').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(5),
-        ]);
-
-        // Error handling
-        if (foldersResponse.error) throw foldersResponse.error;
-        if (documentsResponse.error) throw documentsResponse.error;
-        if (chatsResponse.error) throw chatsResponse.error;
-
-        // Update state with fetched data
-        setFolders(foldersResponse.data || []);
-        setDocuments(documentsResponse.data || []);
-        setChats(chatsResponse.data || []);
-
-      } catch (err: any) {
-        console.error("Error fetching sidebar data:", err);
-        setError("Failed to load workspace data.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
-  }, [user]); // Re-fetch data if the user changes
+  }, [user, refreshKey]);
+
+  /**
+   * Prompts user for a folder name and creates it in Supabase.
+   */
+  const handleNewFolder = async () => {
+    if (!user) return;
+    const folderName = prompt("Enter a name for the new folder:");
+    if (folderName && folderName.trim()) {
+      const { error } = await supabase
+        .from('folders')
+        .insert({ user_id: user.id, name: folderName.trim() });
+      
+      if (error) {
+        console.error("Error creating folder:", error);
+        alert(`Failed to create folder: ${error.message}`);
+      } else {
+        fetchData(); // Re-fetch data to show the new folder immediately
+      }
+    }
+  };
 
   // --- DATA STRUCTURING ---
-  // Memoize this calculation to avoid re-computing on every render
+  // Processes the flat lists of folders and documents into a nested structure for rendering.
   const { structuredFolders, rootDocuments } = (() => {
     const folderMap = new Map<string, FolderWithDocuments>();
-    
-    // Initialize map with all folders
-    folders.forEach(folder => {
-      folderMap.set(folder.id, { ...folder, documents: [] });
-    });
-
+    folders.forEach(folder => folderMap.set(folder.id, { ...folder, documents: [] }));
     const rootDocs: DocumentType[] = [];
-
-    // Place each document into its corresponding folder or the root list
     documents.forEach(doc => {
       if (doc.folder_id && folderMap.has(doc.folder_id)) {
         folderMap.get(doc.folder_id)!.documents.push(doc);
@@ -126,25 +132,15 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
         rootDocs.push(doc);
       }
     });
-
-    return {
-      structuredFolders: Array.from(folderMap.values()),
-      rootDocuments: rootDocs
-    };
+    return { structuredFolders: Array.from(folderMap.values()), rootDocuments: rootDocs };
   })();
-
 
   const toggleFolder = (folderId: string) => {
     const newExpanded = new Set(expandedFolders);
-    if (newExpanded.has(folderId)) {
-      newExpanded.delete(folderId);
-    } else {
-      newExpanded.add(folderId);
-    }
+    newExpanded.has(folderId) ? newExpanded.delete(folderId) : newExpanded.add(folderId);
     setExpandedFolders(newExpanded);
   };
 
-  // --- RENDER LOGIC ---
   const renderWorkspaceContent = () => {
     if (loading) {
       return <div className="p-4 flex items-center justify-center text-slate-500"><Loader2 className="animate-spin mr-2" /><span>Loading...</span></div>;
@@ -152,114 +148,56 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
     if (error) {
       return <div className="p-4 text-red-500 flex items-center"><AlertCircle className="mr-2" /><span>{error}</span></div>;
     }
+    if (structuredFolders.length === 0 && rootDocuments.length === 0) {
+        return <div className="p-4 text-sm text-center text-slate-500 dark:text-slate-400">Your workspace is empty.</div>;
+    }
     return (
       <>
-        {/* Render folders with their documents */}
         {structuredFolders.map(folder => (
-          <FolderItem
-            key={folder.id}
-            id={folder.id}
-            name={folder.name}
-            expanded={expandedFolders.has(folder.id)}
-            onToggle={() => toggleFolder(folder.id)}
-          >
-            {folder.documents.map(doc => (
-              <DocumentItem
-                key={doc.id}
-                id={doc.id}
-                name={doc.title}
-                selected={selectedDocument === doc.id}
-                onSelect={() => onSelectDocument(doc.id)}
-              />
-            ))}
+          <FolderItem key={folder.id} name={folder.name} expanded={expandedFolders.has(folder.id)} onToggle={() => toggleFolder(folder.id)}>
+            {folder.documents.map(doc => <DocumentItem key={doc.id} name={doc.title} selected={selectedDocument === doc.id} onSelect={() => onSelectDocument(doc.id)} />)}
           </FolderItem>
         ))}
-        {/* Render documents that are not in any folder */}
-        {rootDocuments.map(doc => (
-           <DocumentItem
-              key={doc.id}
-              id={doc.id}
-              name={doc.title}
-              selected={selectedDocument === doc.id}
-              onSelect={() => onSelectDocument(doc.id)}
-            />
-        ))}
+        {rootDocuments.map(doc => <DocumentItem key={doc.id} name={doc.title} selected={selectedDocument === doc.id} onSelect={() => onSelectDocument(doc.id)} />)}
       </>
     );
   };
 
-
   return (
     <aside className="w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex flex-col">
-      {/* Header and New Chat/Folder buttons remain the same */}
       <div className="p-5 border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-900 rounded-lg flex items-center justify-center">
-            <FileText className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-slate-900 dark:text-white">LegalAI</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Document Assistant</p>
-          </div>
+          <div className="w-10 h-10 bg-gradient-to-br from-slate-700 to-slate-900 rounded-lg flex items-center justify-center"><FileText className="w-5 h-5 text-white" /></div>
+          <div><h1 className="text-lg font-semibold text-slate-900 dark:text-white">LegalAI</h1><p className="text-xs text-slate-500 dark:text-slate-400">Document Assistant</p></div>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-2">
-            <button className="w-full flex items-center gap-3 px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors">
-                <Plus className="w-5 h-5" />
-                <span className="font-medium">New Chat</span>
-            </button>
-            <button className="w-full flex items-center gap-3 px-4 py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                <FolderPlus className="w-5 h-5" />
-                <span className="font-medium">New Folder</span>
-            </button>
+            <button onClick={onNewChat} className="w-full flex items-center gap-3 px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"><Plus className="w-5 h-5" /><span className="font-medium">New Chat</span></button>
+            <button onClick={handleNewFolder} className="w-full flex items-center gap-3 px-4 py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"><FolderPlus className="w-5 h-5" /><span className="font-medium">New Folder</span></button>
         </div>
 
-        {/* Dynamic Workspace Section */}
-        <div className="px-4 py-3">
-          <button onClick={() => setShowFolders(!showFolders)} className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white w-full">
-            {showFolders ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            <span>WORKSPACE</span>
-          </button>
+        <div className="px-4 py-3 flex items-center justify-between">
+            <button className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white w-full"><ChevronDown className="w-4 h-4" /><span>WORKSPACE</span></button>
+            <button onClick={fetchData} title="Refresh Workspace" className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md">
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
         </div>
-        {showFolders && <div className="px-4 space-y-1">{renderWorkspaceContent()}</div>}
+        <div className="px-4 space-y-1">{renderWorkspaceContent()}</div>
 
-        {/* Dynamic Recent Chats Section */}
         <div className="px-4 py-3 mt-6">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3">
-            <MessageSquare className="w-4 h-4" />
-            <span>RECENT CHATS</span>
-          </div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3"><MessageSquare className="w-4 h-4" /><span>RECENT CHATS</span></div>
           <div className="space-y-1">
-            {chats.map(chat => (
-                <ChatItem
-                    key={chat.id}
-                    id={chat.id}
-                    name={chat.title}
-                    selected={selectedChat === chat.id}
-                    onSelect={() => onSelectChat(chat.id)}
-                />
-            ))}
+            {chats.map(chat => <ChatItem key={chat.id} name={chat.title} selected={selectedChat === chat.id} onSelect={() => onSelectChat(chat.id)} />)}
           </div>
         </div>
       </div>
 
-      {/* User profile section remains the same */}
       <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-        {/* --- THIS IS THE DIV TO MODIFY --- */}
-        <div 
-          onClick={() => navigate('/profile')} // <-- ADD THIS ONCLICK HANDLER
-          className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-        >
-            <div className="w-9 h-9 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-            </div>
-            <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{user?.email || 'User'}</p>
-                {/* I've removed the hardcoded email for a placeholder */}
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">View profile settings</p>
-            </div>
+        <div onClick={() => navigate('/profile')} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
+            <div className="w-9 h-9 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center"><User className="w-5 h-5 text-slate-600 dark:text-slate-300" /></div>
+            <div className="flex-1 min-w-0"><p className="text-sm font-medium text-slate-900 dark:text-white truncate">{user?.email || 'User'}</p><p className="text-xs text-slate-500 dark:text-slate-400 truncate">View profile settings</p></div>
             <Settings className="w-5 h-5 text-slate-400" />
         </div>
       </div>
@@ -267,18 +205,9 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
   );
 }
 
+// --- SUB-COMPONENTS ---
 
-// --- SUB-COMPONENTS (remain the same) ---
-
-interface FolderItemProps {
-  id: string;
-  name: string;
-  expanded: boolean;
-  onToggle: () => void;
-  children?: React.ReactNode;
-}
-
-function FolderItem({ name, expanded, onToggle, children }: FolderItemProps) {
+function FolderItem({ name, expanded, onToggle, children }: { name: string, expanded: boolean, onToggle: () => void, children?: React.ReactNode }) {
   return (
     <div>
       <button onClick={onToggle} className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors">
@@ -291,14 +220,7 @@ function FolderItem({ name, expanded, onToggle, children }: FolderItemProps) {
   );
 }
 
-interface DocumentItemProps {
-  id: string;
-  name: string;
-  selected: boolean;
-  onSelect: () => void;
-}
-
-function DocumentItem({ name, selected, onSelect }: DocumentItemProps) {
+function DocumentItem({ name, selected, onSelect }: { name: string, selected: boolean, onSelect: () => void }) {
   return (
     <button onClick={onSelect} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${selected ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
       <FileText className="w-4 h-4" />
@@ -307,14 +229,7 @@ function DocumentItem({ name, selected, onSelect }: DocumentItemProps) {
   );
 }
 
-interface ChatItemProps {
-  id: string;
-  name: string;
-  selected: boolean;
-  onSelect: () => void;
-}
-
-function ChatItem({ name, selected, onSelect }: ChatItemProps) {
+function ChatItem({ name, selected, onSelect }: { name: string, selected: boolean, onSelect: () => void }) {
   return (
     <button onClick={onSelect} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${selected ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
       <MessageSquare className="w-4 h-4" />

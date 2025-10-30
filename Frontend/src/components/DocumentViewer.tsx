@@ -2,44 +2,44 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, BookmarkPlus, X, ZoomIn, ZoomOut, Highlighter, Trash2 } from 'lucide-react';
-import PdfViewer, { Highlight } from './PdfViewer'; // Import the new Highlight type
+import PdfViewer, { Highlight } from './PdfViewer';
 import { uploadPdf } from '../services/apiService';
-
-// Defines the structure for the state holding the uploaded file
-interface PdfFile {
-  file: File;
-  url: string;
-}
 
 // Defines the props this component receives from its parent (Workspace)
 interface DocumentViewerProps {
-  onUploadSuccess: (docId: string) => void;
+  documentUrl: string | null; // The URL of the document to display, passed from Workspace
+  onUploadSuccess: (docId: string, file: File) => void;
   onSummarize: (selectedText: string) => void; 
 }
 
-function DocumentViewer({ onUploadSuccess, onSummarize }: DocumentViewerProps) {
-  const [pdfFile, setPdfFile] = useState<PdfFile | null>(null);
+function DocumentViewer({ documentUrl, onUploadSuccess, onSummarize }: DocumentViewerProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- State for the UI controls ---
+  // --- State for the UI controls, managed within this component ---
   const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(100);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
 
-  // --- Handlers for User Actions ---
+  // Effect to reset the state when a new document is loaded (or unloaded)
+  useEffect(() => {
+    setHighlights([]);
+    setTotalPages(0);
+    setCurrentPage(1);
+  }, [documentUrl]);
 
+  // Handler for uploading a NEW file
   const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || file.type !== 'application/pdf') return;
 
     setIsUploading(true);
     try {
+      // 1. Call the backend AI service to process the file
       const result = await uploadPdf(file);
-      onUploadSuccess(result.doc_id);
-      const url = URL.createObjectURL(file);
-      setPdfFile({ file, url });
+      // 2. Notify the parent Workspace of the success, passing the backend ID and the full File object
+      onUploadSuccess(result.doc_id, file);
     } catch (error) {
       console.error("Error uploading file:", error);
       alert("Failed to upload the file. Please check the console and ensure the backend is running.");
@@ -48,27 +48,13 @@ function DocumentViewer({ onUploadSuccess, onSummarize }: DocumentViewerProps) {
     }
   }, [onUploadSuccess]);
 
-  // Effect to clean up the temporary URL to prevent memory leaks
-  useEffect(() => {
-    return () => { if (pdfFile) URL.revokeObjectURL(pdfFile.url); };
-  }, [pdfFile]);
-
-  // Resets the viewer to its initial state when a file is closed
-  const handleRemoveFile = () => {
-    setPdfFile(null);
-    setHighlights([]);
-    setTotalPages(0);
-    setCurrentPage(1);
-    setZoom(100);
-  };
-
+  // --- UI Handlers ---
   const handleUploadClick = () => fileInputRef.current?.click();
   
   const handleZoomChange = (newZoom: number) => {
     setZoom(Math.max(25, Math.min(newZoom, 300))); // Clamp zoom
   };
   
-  // Adds a new highlight from the child and triggers the summarize logic in Workspace
   const handleAddHighlight = (highlight: Highlight) => {
     setHighlights(prev => [...prev, highlight]);
     onSummarize(highlight.text); 
@@ -79,14 +65,19 @@ function DocumentViewer({ onUploadSuccess, onSummarize }: DocumentViewerProps) {
   };
 
   // --- Conditional Rendering ---
-  if (!pdfFile) {
+
+  // If no document is selected in Workspace, show the placeholder/uploader.
+  if (!documentUrl) {
     return (
       <main className="flex-1 bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center p-8">
           <BookmarkPlus className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-6">
-            Upload and Analyze Your Document
+          <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+            Select a Document
           </h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto mb-6">
+            Choose a document from your workspace or upload a new one to begin.
+          </p>
           <button 
             onClick={handleUploadClick} 
             disabled={isUploading} 
@@ -105,19 +96,16 @@ function DocumentViewer({ onUploadSuccess, onSummarize }: DocumentViewerProps) {
     );
   }
 
+  // If a document URL is provided by Workspace, render the full viewer.
   return (
     <main className="flex-1 bg-slate-200 dark:bg-slate-950 flex flex-col overflow-hidden">
       {/* TOP CONTROL BAR */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-2 flex items-center justify-between shadow-sm flex-shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <h2 className="text-md font-semibold text-slate-900 dark:text-white truncate" title={pdfFile.file.name}>
-            {pdfFile.file.name}
+        <div className="min-w-0">
+          <h2 className="text-md font-semibold text-slate-900 dark:text-white truncate">
+            Document Viewer
           </h2>
-          <button onClick={handleRemoveFile} title="Close file" className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-md">
-            <X className="w-4 h-4" />
-          </button>
         </div>
-
         <div className="flex items-center gap-4">
           <div className="text-sm text-slate-600 dark:text-slate-300">
             Page {currentPage} of {totalPages}
@@ -154,7 +142,7 @@ function DocumentViewer({ onUploadSuccess, onSummarize }: DocumentViewerProps) {
       
       {/* THE PDF VIEWER CHILD COMPONENT */}
       <PdfViewer 
-        fileUrl={pdfFile.url} 
+        fileUrl={documentUrl} 
         zoom={zoom}
         highlights={highlights}
         onAddHighlight={handleAddHighlight}
