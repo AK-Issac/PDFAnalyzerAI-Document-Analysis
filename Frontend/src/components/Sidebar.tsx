@@ -1,5 +1,3 @@
-// src/components/Sidebar.tsx
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -15,9 +13,10 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Trash2, // Import the delete icon
 } from 'lucide-react';
-import { supabase } from '../lib/supabase'; // Make sure this path is correct
-import { useAuth } from '../contexts/AuthContext'; // Assuming you have an AuthContext
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 // --- DATA TYPES ---
 type FolderType = {
@@ -30,11 +29,7 @@ type DocumentType = {
   id: string;
   title: string;
   folder_id: string | null;
-};
-
-type ChatType = {
-  id: string;
-  title: string;
+  file_url: string; // Add file_url to the type to access it for deletion
 };
 
 type FolderWithDocuments = FolderType & { documents: DocumentType[] };
@@ -42,49 +37,41 @@ type FolderWithDocuments = FolderType & { documents: DocumentType[] };
 // --- COMPONENT PROPS ---
 interface SidebarProps {
   selectedDocument: string | null;
-  selectedChat: string | null;
   onSelectDocument: (id: string) => void;
-  onSelectChat: (id: string) => void;
   onNewChat: () => void;
-  refreshKey: boolean; // A key from the parent to trigger re-fetching
+  refreshKey: boolean;
+  onDeleteDocument: () => void; // Add a handler for when a document is deleted
 }
 
-function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectChat, onNewChat, refreshKey }: SidebarProps) {
+function Sidebar({ selectedDocument, onSelectDocument, onNewChat, refreshKey, onDeleteDocument }: SidebarProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   // State for raw data from Supabase
   const [folders, setFolders] = useState<FolderType[]>([]);
   const [documents, setDocuments] = useState<DocumentType[]>([]);
-  const [chats, setChats] = useState<ChatType[]>([]);
 
   // State for UI and data fetching
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Fetches all necessary data for the sidebar from Supabase.
-   * Can be called manually to refresh.
-   */
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
     setError(null);
     try {
-      const [foldersRes, docsRes, chatsRes] = await Promise.all([
+      // Simplified to fetch only folders and documents
+      const [foldersRes, docsRes] = await Promise.all([
         supabase.from('folders').select('id, name, parent_id').eq('user_id', user.id),
-        supabase.from('documents').select('id, title, folder_id').eq('user_id', user.id),
-        supabase.from('chats').select('id, title').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(10),
+        supabase.from('documents').select('id, title, folder_id, file_url').eq('user_id', user.id),
       ]);
 
       if (foldersRes.error) throw foldersRes.error;
       if (docsRes.error) throw docsRes.error;
-      if (chatsRes.error) throw chatsRes.error;
 
       setFolders(foldersRes.data || []);
       setDocuments(docsRes.data || []);
-      setChats(chatsRes.data || []);
     } catch (err: any) {
       console.error("Error fetching sidebar data:", err);
       setError("Failed to load workspace.");
@@ -93,15 +80,10 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
     }
   };
 
-  // --- DATA FETCHING EFFECT ---
-  // Runs when the component mounts, the user changes, or the refreshKey is toggled.
   useEffect(() => {
     fetchData();
   }, [user, refreshKey]);
 
-  /**
-   * Prompts user for a folder name and creates it in Supabase.
-   */
   const handleNewFolder = async () => {
     if (!user) return;
     const folderName = prompt("Enter a name for the new folder:");
@@ -114,13 +96,51 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
         console.error("Error creating folder:", error);
         alert(`Failed to create folder: ${error.message}`);
       } else {
-        fetchData(); // Re-fetch data to show the new folder immediately
+        fetchData();
       }
     }
   };
 
-  // --- DATA STRUCTURING ---
-  // Processes the flat lists of folders and documents into a nested structure for rendering.
+  /**
+   * Handles the deletion of a document and all its associated data.
+   */
+  const handleDeleteDocument = async (docToDelete: DocumentType) => {
+    // 1. Confirm with the user
+    const isConfirmed = window.confirm(`Are you sure you want to delete "${docToDelete.title}"? This action cannot be undone.`);
+    if (!isConfirmed) return;
+
+    try {
+      // 2. Delete the file from Supabase Storage
+      const { error: storageError } = await supabase.storage
+        .from('user_documents')
+        .remove([docToDelete.file_url]);
+
+      if (storageError) {
+        // Log the error but proceed to delete database records, as the file might already be gone
+        console.error("Error deleting from storage (might be benign):", storageError);
+      }
+
+      // 3. Delete the document record from the 'documents' table.
+      // RLS policies should handle cascading deletes to chats and messages if set up.
+      // If not, you must delete them manually, starting from messages.
+      const { error: dbError } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', docToDelete.id);
+
+      if (dbError) throw dbError;
+
+      // 4. Refresh the UI
+      alert("Document deleted successfully.");
+      onDeleteDocument(); // Notify parent to clear the view
+      fetchData(); // Refresh the sidebar
+
+    } catch (error: any) {
+      console.error("Failed to delete document:", error);
+      alert(`An error occurred: ${error.message}`);
+    }
+  };
+
   const { structuredFolders, rootDocuments } = (() => {
     const folderMap = new Map<string, FolderWithDocuments>();
     folders.forEach(folder => folderMap.set(folder.id, { ...folder, documents: [] }));
@@ -142,12 +162,8 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
   };
 
   const renderWorkspaceContent = () => {
-    if (loading) {
-      return <div className="p-4 flex items-center justify-center text-slate-500"><Loader2 className="animate-spin mr-2" /><span>Loading...</span></div>;
-    }
-    if (error) {
-      return <div className="p-4 text-red-500 flex items-center"><AlertCircle className="mr-2" /><span>{error}</span></div>;
-    }
+    if (loading) return <div className="p-4 flex items-center justify-center text-slate-500"><Loader2 className="animate-spin mr-2" /><span>Loading...</span></div>;
+    if (error) return <div className="p-4 text-red-500 flex items-center"><AlertCircle className="mr-2" /><span>{error}</span></div>;
     if (structuredFolders.length === 0 && rootDocuments.length === 0) {
         return <div className="p-4 text-sm text-center text-slate-500 dark:text-slate-400">Your workspace is empty.</div>;
     }
@@ -155,10 +171,10 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
       <>
         {structuredFolders.map(folder => (
           <FolderItem key={folder.id} name={folder.name} expanded={expandedFolders.has(folder.id)} onToggle={() => toggleFolder(folder.id)}>
-            {folder.documents.map(doc => <DocumentItem key={doc.id} name={doc.title} selected={selectedDocument === doc.id} onSelect={() => onSelectDocument(doc.id)} />)}
+            {folder.documents.map(doc => <DocumentItem key={doc.id} document={doc} selected={selectedDocument === doc.id} onSelect={() => onSelectDocument(doc.id)} onDelete={() => handleDeleteDocument(doc)} />)}
           </FolderItem>
         ))}
-        {rootDocuments.map(doc => <DocumentItem key={doc.id} name={doc.title} selected={selectedDocument === doc.id} onSelect={() => onSelectDocument(doc.id)} />)}
+        {rootDocuments.map(doc => <DocumentItem key={doc.id} document={doc} selected={selectedDocument === doc.id} onSelect={() => onSelectDocument(doc.id)} onDelete={() => handleDeleteDocument(doc)} />)}
       </>
     );
   };
@@ -185,13 +201,6 @@ function Sidebar({ selectedDocument, selectedChat, onSelectDocument, onSelectCha
             </button>
         </div>
         <div className="px-4 space-y-1">{renderWorkspaceContent()}</div>
-
-        <div className="px-4 py-3 mt-6">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3"><MessageSquare className="w-4 h-4" /><span>RECENT CHATS</span></div>
-          <div className="space-y-1">
-            {chats.map(chat => <ChatItem key={chat.id} name={chat.title} selected={selectedChat === chat.id} onSelect={() => onSelectChat(chat.id)} />)}
-          </div>
-        </div>
       </div>
 
       <div className="p-4 border-t border-slate-200 dark:border-slate-700">
@@ -220,21 +229,18 @@ function FolderItem({ name, expanded, onToggle, children }: { name: string, expa
   );
 }
 
-function DocumentItem({ name, selected, onSelect }: { name: string, selected: boolean, onSelect: () => void }) {
+// Updated DocumentItem to include a delete button
+function DocumentItem({ document, selected, onSelect, onDelete }: { document: DocumentType, selected: boolean, onSelect: () => void, onDelete: () => void }) {
   return (
-    <button onClick={onSelect} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${selected ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-      <FileText className="w-4 h-4" />
-      <span className="text-sm truncate text-left flex-1">{name}</span>
-    </button>
-  );
-}
-
-function ChatItem({ name, selected, onSelect }: { name: string, selected: boolean, onSelect: () => void }) {
-  return (
-    <button onClick={onSelect} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${selected ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-      <MessageSquare className="w-4 h-4" />
-      <span className="text-sm truncate text-left flex-1">{name}</span>
-    </button>
+    <div className={`group w-full flex items-center gap-2 pr-2 rounded-lg transition-colors ${selected ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+        <button onClick={onSelect} className={`flex-1 flex items-center gap-2 px-3 py-2 ${selected ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>
+            <FileText className="w-4 h-4" />
+            <span className="text-sm truncate text-left flex-1">{document.title}</span>
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-1 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-slate-700">
+            <Trash2 className="w-4 h-4" />
+        </button>
+    </div>
   );
 }
 
