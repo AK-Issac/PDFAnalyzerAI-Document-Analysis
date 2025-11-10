@@ -29,11 +29,13 @@ function Workspace() {
   const [highlightedText, setHighlightedText] = useState<string>('');
   const [refreshSidebarKey, setRefreshSidebarKey] = useState(false);
 
+  
+
   /**
    * EFFECT: Fetches message history from Supabase whenever the selectedChatId changes.
    */
 
-  
+
   useEffect(() => {
     const fetchMessages = async () => {
       if (!selectedChatId) {
