@@ -32,6 +32,8 @@ function Workspace() {
   /**
    * EFFECT: Fetches message history from Supabase whenever the selectedChatId changes.
    */
+
+  
   useEffect(() => {
     const fetchMessages = async () => {
       if (!selectedChatId) {
