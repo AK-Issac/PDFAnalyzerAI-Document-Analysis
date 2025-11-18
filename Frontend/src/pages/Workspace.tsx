@@ -28,6 +28,24 @@ function Workspace() {
   const [aiMode, setAiMode] = useState<AIMode>('chat');
   const [highlightedText, setHighlightedText] = useState<string>('');
   const [refreshSidebarKey, setRefreshSidebarKey] = useState(false);  
+
+
+
+  const fetchFolders = async () => {
+    const { data, error } = await supabase
+      .from('folders')
+      .select('id, name, parent_id')
+      .eq('user_id', user?.id);
+    if (error) throw error;
+    return data;
+  };
+  
+  useEffect(() => {
+    fetchFolders().then(setFolders);
+  }, [user]);
+
+  console.log(folders);
+  
   /**
    * EFFECT: Fetches message history from Supabase whenever the selectedChatId changes.
    */
