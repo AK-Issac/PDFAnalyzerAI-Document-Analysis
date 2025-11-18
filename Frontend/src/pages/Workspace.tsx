@@ -27,11 +27,7 @@ function Workspace() {
   const [isLoading, setIsLoading] = useState(false);
   const [aiMode, setAiMode] = useState<AIMode>('chat');
   const [highlightedText, setHighlightedText] = useState<string>('');
-  const [refreshSidebarKey, setRefreshSidebarKey] = useState(false);
-
-
-
-  
+  const [refreshSidebarKey, setRefreshSidebarKey] = useState(false);  
   /**
    * EFFECT: Fetches message history from Supabase whenever the selectedChatId changes.
    */
