@@ -4,7 +4,6 @@ import {
   FileText,
   Folder,
   FolderPlus,
-  MessageSquare,
   Plus,
   ChevronDown,
   ChevronRight,
@@ -15,8 +14,7 @@ import {
   RefreshCw,
   Trash2, // Import the delete icon
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { fetchWorkspace, createFolder, deleteDocument } from '../services/apiService';
 
 // --- DATA TYPES ---
 type FolderType = {
@@ -29,7 +27,6 @@ type DocumentType = {
   id: string;
   title: string;
   folder_id: string | null;
-  file_url: string; // Add file_url to the type to access it for deletion
 };
 
 type FolderWithDocuments = FolderType & { documents: DocumentType[] };
@@ -44,10 +41,9 @@ interface SidebarProps {
 }
 
 function Sidebar({ selectedDocument, onSelectDocument, onNewChat, refreshKey, onDeleteDocument }: SidebarProps) {
-  const { user } = useAuth();
   const navigate = useNavigate();
 
-  // State for raw data from Supabase
+  // State for raw data from Postgres via API
   const [folders, setFolders] = useState<FolderType[]>([]);
   const [documents, setDocuments] = useState<DocumentType[]>([]);
 
@@ -57,21 +53,12 @@ function Sidebar({ selectedDocument, onSelectDocument, onNewChat, refreshKey, on
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
-    if (!user) return;
     setLoading(true);
     setError(null);
     try {
-      // Simplified to fetch only folders and documents
-      const [foldersRes, docsRes] = await Promise.all([
-        supabase.from('folders').select('id, name, parent_id').eq('user_id', user.id),
-        supabase.from('documents').select('id, title, folder_id, file_url').eq('user_id', user.id),
-      ]);
-
-      if (foldersRes.error) throw foldersRes.error;
-      if (docsRes.error) throw docsRes.error;
-
-      setFolders(foldersRes.data || []);
-      setDocuments(docsRes.data || []);
+      const data = await fetchWorkspace();
+      setFolders(data.folders || []);
+      setDocuments(data.documents || []);
     } catch (err: any) {
       console.error("Error fetching sidebar data:", err);
       setError("Failed to load workspace.");
@@ -82,21 +69,17 @@ function Sidebar({ selectedDocument, onSelectDocument, onNewChat, refreshKey, on
 
   useEffect(() => {
     fetchData();
-  }, [user, refreshKey]);
+  }, [refreshKey]);
 
   const handleNewFolder = async () => {
-    if (!user) return;
     const folderName = prompt("Enter a name for the new folder:");
     if (folderName && folderName.trim()) {
-      const { error } = await supabase
-        .from('folders')
-        .insert({ user_id: user.id, name: folderName.trim() });
-      
-      if (error) {
+      try {
+        await createFolder(folderName.trim());
+        fetchData();
+      } catch (error: any) {
         console.error("Error creating folder:", error);
         alert(`Failed to create folder: ${error.message}`);
-      } else {
-        fetchData();
       }
     }
   };
@@ -110,27 +93,10 @@ function Sidebar({ selectedDocument, onSelectDocument, onNewChat, refreshKey, on
     if (!isConfirmed) return;
 
     try {
-      // 2. Delete the file from Supabase Storage
-      const { error: storageError } = await supabase.storage
-        .from('user_documents')
-        .remove([docToDelete.file_url]);
+      // Delete via API
+      await deleteDocument(docToDelete.id);
 
-      if (storageError) {
-        // Log the error but proceed to delete database records, as the file might already be gone
-        console.error("Error deleting from storage (might be benign):", storageError);
-      }
-
-      // 3. Delete the document record from the 'documents' table.
-      // RLS policies should handle cascading deletes to chats and messages if set up.
-      // If not, you must delete them manually, starting from messages.
-      const { error: dbError } = await supabase
-        .from('documents')
-        .delete()
-        .eq('id', docToDelete.id);
-
-      if (dbError) throw dbError;
-
-      // 4. Refresh the UI
+      // Refresh the UI
       alert("Document deleted successfully.");
       onDeleteDocument(); // Notify parent to clear the view
       fetchData(); // Refresh the sidebar
@@ -206,7 +172,7 @@ function Sidebar({ selectedDocument, onSelectDocument, onNewChat, refreshKey, on
       <div className="p-4 border-t border-slate-200 dark:border-slate-700">
         <div onClick={() => navigate('/profile')} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
             <div className="w-9 h-9 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center"><User className="w-5 h-5 text-slate-600 dark:text-slate-300" /></div>
-            <div className="flex-1 min-w-0"><p className="text-sm font-medium text-slate-900 dark:text-white truncate">{user?.email || 'User'}</p><p className="text-xs text-slate-500 dark:text-slate-400 truncate">View profile settings</p></div>
+            <div className="flex-1 min-w-0"><p className="text-sm font-medium text-slate-900 dark:text-white truncate">Local Dev User</p><p className="text-xs text-slate-500 dark:text-slate-400 truncate">View profile settings</p></div>
             <Settings className="w-5 h-5 text-slate-400" />
         </div>
       </div>

@@ -30,7 +30,7 @@ interface PdfViewerProps {
   onPageChange: (page: number) => void;
 }
 
-// --- SELECTION POP-UP COMPONENT (IMPROVED) ---
+// --- SELECTION POP-UP COMPONENT ---
 interface SelectionPopupProps {
   position: { top: number; left: number };
   onAction: (type: 'highlight' | 'note', noteContent?: string) => void;
@@ -46,28 +46,29 @@ function SelectionPopup({ position, onAction }: SelectionPopupProps) {
     }
   };
 
-  // This function prevents the main viewer's click/mouseup events from firing,
-  // which would otherwise close the popup instantly.
   const stopPropagation = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
 
   return (
     <div
-      style={{ top: position.top, left: position.left, transform: 'translateX(-50%)' }}
-      className="absolute z-50 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 flex items-center gap-1"
+      // CHANGED: Position is now 'fixed' to align with viewport mouse coordinates
+      style={{ top: position.top, left: position.left }}
+      className="fixed z-[100] -translate-x-1/2 -translate-y-full mb-2 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 flex items-center gap-1 animate-in fade-in zoom-in duration-200"
       onMouseUp={stopPropagation}
-      onClick={stopPropagation} // *** FIX: Stop click propagation to prevent closing
+      onClick={stopPropagation}
     >
       {!isNoting ? (
         <div className="flex p-1">
           <button
             onClick={() => onAction('highlight')}
-            className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-amber-500"
+            className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-amber-500 flex items-center gap-2"
             title="Highlight"
           >
             <Highlighter className="w-5 h-5" />
+            <span className="text-xs font-semibold pr-1">Highlight</span>
           </button>
+          <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
           <button
             onClick={() => setIsNoting(true)}
             className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-sky-500"
@@ -84,7 +85,7 @@ function SelectionPopup({ position, onAction }: SelectionPopupProps) {
             value={noteInput}
             onChange={(e) => setNoteInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleNoteSave(); }}
-            className="px-2 py-1 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-sky-500 outline-none"
+            className="px-2 py-1 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-sky-500 outline-none w-48"
             autoFocus
           />
           <button onClick={handleNoteSave} className="px-3 py-1 bg-sky-600 text-white rounded-md text-sm font-semibold hover:bg-sky-700">
@@ -92,6 +93,8 @@ function SelectionPopup({ position, onAction }: SelectionPopupProps) {
           </button>
         </div>
       )}
+      {/* Arrow pointing down to cursor */}
+      <div className="absolute left-1/2 -bottom-2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-white dark:border-t-slate-800 drop-shadow-sm"></div>
     </div>
   );
 }
@@ -100,38 +103,41 @@ function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountCha
   const [numPages, setNumPages] = useState<number | null>(null);
   const [popup, setPopup] = useState<{ top: number; left: number } | null>(null);
   
-  // Use a ref to store the latest selection data without causing re-renders
   const selectionRef = useRef<Selection | null>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
+
+  // MEMOIZE THE FILE PROP TO PREVENT INFINITE RELOADS
+  // We type it as 'any' because react-pdf types don't officially surface httpHeaders, but pdfjs requires it
+  const fileProp = React.useMemo<any>(() => {
+    return {
+      url: fileUrl,
+      httpHeaders: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    };
+  }, [fileUrl]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
     onPageCountChange(numPages);
   };
 
-  // This is the handler that fires when you release the mouse after selecting text
-  const handleMouseUp = useCallback(() => {
-    if (!viewerRef.current) return;
-    
+  // ... (rest unchanged) ...
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
     const selection = window.getSelection();
     
-    // Check if the selection is valid and contains enough text
-    if (!selection || selection.isCollapsed || selection.toString().trim().length < 3) {
+    // Validation
+    if (!selection || selection.isCollapsed || selection.toString().trim().length === 0) {
       setPopup(null);
       return;
     }
 
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    const viewerRect = viewerRef.current.getBoundingClientRect();
-    
-    // Store the selection object in the ref
+    // Store selection
     selectionRef.current = selection;
 
-    // Calculate position for the popup
+    // CHANGED: Use ClientX/Y directly for "Mouse Position"
+    // We offset Y by -10px so the popup sits slightly above the cursor
     setPopup({
-      top: rect.top - viewerRect.top + viewerRef.current.scrollTop - 45, // Position above selection
-      left: rect.left - viewerRect.left + (rect.width / 2),
+      top: e.clientY - 10,
+      left: e.clientX,
     });
   }, []);
 
@@ -140,13 +146,24 @@ function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountCha
     if (!selection) return;
 
     const range = selection.getRangeAt(0);
-    const pageElement = range.startContainer.parentElement?.closest('.react-pdf__Page');
-    if (!pageElement) return;
+    
+    // Find the specific PDF page element (the container for the text layer)
+    // We look for .react-pdf__Page because that's the reference frame for the coordinate system
+    const pageElement = range.startContainer.parentElement?.closest('.react-pdf__Page') as HTMLElement;
+    
+    if (!pageElement) {
+      console.error("Could not find page element");
+      return;
+    }
 
     const pageNumber = Number(pageElement.getAttribute('data-page-number'));
-    const pageRect = pageElement.getBoundingClientRect();
+    const pageRect = pageElement.getBoundingClientRect(); // Viewport coordinates of the page
     const scale = zoom / 100;
 
+    // CHANGED: Improve coordinate math
+    // 1. We get all rects associated with the selection (handles multi-line)
+    // 2. We subtract the PAGE's left/top from the SELECTION's left/top.
+    // 3. We divide by scale to get the original PDF point coordinates.
     const annotationRects: AnnotationRect[] = Array.from(range.getClientRects()).map(rect => ({
       x: (rect.left - pageRect.left) / scale,
       y: (rect.top - pageRect.top) / scale,
@@ -165,7 +182,6 @@ function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountCha
 
     onAddAnnotation(newAnnotation);
     
-    // Clean up
     setPopup(null);
     selectionRef.current = null;
     window.getSelection()?.removeAllRanges();
@@ -174,68 +190,92 @@ function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountCha
   return (
     <div 
       ref={viewerRef}
-      className="flex-1 overflow-y-auto"
+      className="flex-1 overflow-y-auto bg-slate-100 dark:bg-slate-900 relative"
       onMouseUp={handleMouseUp}
-      onClick={() => { if (popup) setPopup(null); }} // Hide popup if clicking away
+      onClick={() => setPopup(null)} 
     >
-      {/* *** FIX: This container now correctly centers the PDF pages *** */}
-      <div className="p-4 md:p-8 flex flex-col items-center">
+      <div className="p-4 md:p-8 flex flex-col items-center min-h-full">
+        {/* Popup is now fixed, so it lives outside the relative flow visually */}
         {popup && <SelectionPopup position={popup} onAction={handlePopupAction} />}
+        
         <Document
-          file={fileUrl}
+          file={fileProp}
           onLoadSuccess={onDocumentLoadSuccess}
-          loading={<div className="flex flex-col h-96 items-center justify-center text-slate-500"><Loader2 className="h-8 w-8 animate-spin mb-4" /><p>Loading Document...</p></div>}
-          error={<div className="flex h-96 items-center justify-center text-red-500"><AlertCircle className="h-8 w-8" /><p className="ml-2">Failed to load PDF file.</p></div>}
+          loading={
+            <div className="flex flex-col h-96 items-center justify-center text-slate-500">
+              <Loader2 className="h-8 w-8 animate-spin mb-4" />
+              <p>Loading Document...</p>
+            </div>
+          }
+          error={
+            <div className="flex h-96 items-center justify-center text-red-500">
+              <AlertCircle className="h-8 w-8" />
+              <p className="ml-2">Failed to load PDF file.</p>
+            </div>
+          }
         >
           {Array.from(new Array(numPages || 0), (_, index) => {
             const pageNumber = index + 1;
             const pageAnnotations = annotations.filter(a => a.page === pageNumber);
 
             return (
-              <div key={`page_container_${pageNumber}`} className="relative">
+              // CHANGED: Added relative positioning here to strictly bound the absolute children
+              <div key={`page_container_${pageNumber}`} className="relative group mb-6">
                 <Page
                   key={`page_${pageNumber}`}
                   pageNumber={pageNumber}
                   scale={zoom / 100}
-                  className="mb-4 shadow-lg bg-white"
-                  onInView={() => onPageChange(pageNumber)}
+                  className="shadow-md"
+                  renderAnnotationLayer={false} // Disable default annotations if they interfere, enable if needed
+                  renderTextLayer={true}
                 />
                 
-                {/* --- RENDER ANNOTATION OVERLAYS --- */}
-                {pageAnnotations.map(annotation => (
-                  <div key={annotation.id}>
-                    {annotation.rects.map((rect, i) => {
-                      const baseStyle: React.CSSProperties = {
-                        position: 'absolute',
-                        left: `${rect.x * (zoom / 100)}px`,
-                        top: `${rect.y * (zoom / 100)}px`,
-                        width: `${rect.width * (zoom / 100)}px`,
-                        height: `${rect.height * (zoom / 100)}px`,
-                        pointerEvents: 'none',
-                      };
-
-                      if (annotation.type === 'highlight') {
-                        return <div key={`${annotation.id}-${i}`} style={{ ...baseStyle, backgroundColor: 'rgba(252, 211, 77, 0.4)' }} />;
-                      }
-                      
-                      if (annotation.type === 'note' && i === 0) {
+                {/* --- RENDER ANNOTATIONS LAYER --- */}
+                {/* This div matches the exact size/position of the Page component */}
+                <div className="absolute inset-0 pointer-events-none">
+                  {pageAnnotations.map(annotation => (
+                    <div key={annotation.id}>
+                      {annotation.rects.map((rect, i) => {
                         return (
-                          <div
-                            key={`${annotation.id}-icon`}
-                            className="absolute z-20 group"
-                            style={{ left: baseStyle.left, top: baseStyle.top, pointerEvents: 'auto' }}
-                          >
-                            <MessageSquare className="w-5 h-5 text-sky-600 bg-white rounded-full p-0.5 shadow-lg cursor-pointer" />
-                            <div className="absolute bottom-full mb-2 w-max max-w-xs p-2 bg-slate-800 text-white text-sm rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                              {annotation.noteContent}
-                            </div>
-                          </div>
+                          <React.Fragment key={`${annotation.id}-${i}`}>
+                            {/* The Highlight Box */}
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: `${rect.x * (zoom / 100)}px`,
+                                top: `${rect.y * (zoom / 100)}px`,
+                                width: `${rect.width * (zoom / 100)}px`,
+                                height: `${rect.height * (zoom / 100)}px`,
+                                backgroundColor: annotation.type === 'highlight' ? 'rgba(252, 211, 77, 0.3)' : 'rgba(14, 165, 233, 0.2)',
+                                borderBottom: annotation.type === 'note' ? '2px solid rgba(14, 165, 233, 0.8)' : 'none',
+                                mixBlendMode: 'multiply', // Helps text show through clearer
+                                pointerEvents: 'auto', // Allows clicking the highlight later if needed
+                              }}
+                            />
+                            
+                            {/* The Note Icon (Only render once per annotation) */}
+                            {annotation.type === 'note' && i === 0 && (
+                               <div
+                                 className="absolute z-20 group/icon cursor-pointer"
+                                 style={{ 
+                                   left: `${(rect.x + rect.width) * (zoom / 100)}px`, // Place at end of highlight
+                                   top: `${rect.y * (zoom / 100) - 10}px`,
+                                   pointerEvents: 'auto' 
+                                 }}
+                               >
+                                 <MessageSquare className="w-5 h-5 text-white bg-sky-500 rounded-full p-1 shadow-sm transform hover:scale-110 transition-transform" />
+                                 {/* Tooltip */}
+                                 <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max max-w-xs p-2 bg-slate-800 text-white text-xs rounded shadow-lg opacity-0 group-hover/icon:opacity-100 transition-opacity pointer-events-none z-30">
+                                   {annotation.noteContent}
+                                 </div>
+                               </div>
+                            )}
+                          </React.Fragment>
                         );
-                      }
-                      return null;
-                    })}
-                  </div>
-                ))}
+                      })}
+                    </div>
+                  ))}
+                </div>
               </div>
             );
           })}

@@ -3,9 +3,7 @@ import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
 import DocumentViewer from '../components/DocumentViewer';
 import AIPanel, { AIMode } from '../components/AIPanel';
-import { queryDocument, summarizeText } from '../services/apiService';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { queryDocument, summarizeText, fetchMessages as fetchMessagesAPI, fetchChatForDocument, getDocumentUrl } from '../services/apiService';
 
 // Define the structure for a chat message, exported for use in other components
 export type Message = {
@@ -15,8 +13,10 @@ export type Message = {
   timestamp: Date;
 };
 
+// If a chat without document is needed, you could add an endpoint in apiService, but for now we just reset.
+// In the future, if you want "general chats", they would need to be supported by a dedicated endpoint.
+
 function Workspace() {
-  const { user } = useAuth();
   
   // --- STATE MANAGEMENT ---
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
@@ -30,10 +30,8 @@ function Workspace() {
   const [refreshSidebarKey, setRefreshSidebarKey] = useState(false);  
   
   /**
-   * EFFECT: Fetches message history from Supabase whenever the selectedChatId changes.
+   * EFFECT: Fetches message history from backend whenever the selectedChatId changes.
    */
-
-
   useEffect(() => {
     const fetchMessages = async () => {
       if (!selectedChatId) {
@@ -43,15 +41,9 @@ function Workspace() {
 
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('messages')
-          .select('id, role, content, created_at')
-          .eq('chat_id', selectedChatId)
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-
-        const loadedMessages = data.map(msg => ({
+        const data = await fetchMessagesAPI(selectedChatId);
+        
+        const loadedMessages = data.messages.map((msg: any) => ({
           id: msg.id,
           role: msg.role as 'user' | 'assistant',
           content: msg.content,
@@ -75,7 +67,7 @@ function Workspace() {
   }, [selectedChatId]);
 
   /**
-   * Called from Sidebar: Fetches an existing document's URL and its associated chat.
+   * Called from Sidebar: Fetches an existing document's URL and its associated chat from Postgres via Flask API.
    */
   const handleSelectDocument = async (docId: string) => {
     // If the same document is clicked again, do nothing.
@@ -83,39 +75,18 @@ function Workspace() {
     
     setIsLoading(true);
     try {
-      // 1. Fetch the document details to get its file path.
-      const { data: docData, error: docError } = await supabase
-          .from('documents')
-          .select('file_url')
-          .eq('id', docId)
-          .single();
-
-      if (docError || !docData) throw new Error(`Could not find document details: ${docError?.message}`);
-
-      // 2. Create a temporary, secure URL for the file.
-      const { data: signedUrlData, error: signedUrlError } = await supabase
-          .storage
-          .from('user_documents')
-          .createSignedUrl(docData.file_url, 3600); // URL is valid for 1 hour
+      // 1. Fetch the chat associated with this document from our backend.
+      const chatData = await fetchChatForDocument(docId);
       
-      if (signedUrlError) throw new Error(`Could not create signed URL: ${signedUrlError.message}`);
+      // 2. Set the document URL to our backend static file endpoint
+      const backendDocUrl = getDocumentUrl(docId);
 
-      // 3. Find the chat associated with this document.
-      const { data: chatData, error: chatError } = await supabase
-          .from('chats')
-          .select('id')
-          .eq('document_id', docId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-      if (chatError) throw new Error(`Could not find a chat for this document: ${chatError.message}`);
-
-      // 4. Update all relevant states to display the document and its chat.
+      // 3. Update all relevant states to display the document and its chat.
       setSelectedDocumentId(docId);
       setAiDocId(docId);
-      setDocumentUrl(signedUrlData.signedUrl);
-      setSelectedChatId(chatData.id);
+      setDocumentUrl(backendDocUrl);
+      setSelectedChatId(chatData.chat_id);
+      setAiMode('chat');
 
     } catch (error: any) {
         console.error("Error selecting document:", error);
@@ -140,80 +111,33 @@ function Workspace() {
   };
 
   /**
-   * Creates a new, empty chat session that is not associated with any document.
+   * Creates a new, empty chat session. Since we disabled Supabase,
+   * we just clear the view for now, as sending messages requires a selected document right now.
    */
-  const handleNewChat = async () => {
-    if (!user) return;
-    setIsLoading(true);
-    try {
-        const { data, error } = await supabase
-            .from('chats')
-            .insert({ user_id: user.id, title: 'New Chat' })
-            .select()
-            .single();
-        if (error) throw error;
-        
-        // Clear any currently viewed document
-        handleDeselect(); 
-        // Set the new chat as active
-        setSelectedChatId(data.id);
-        // Trigger a refresh in the sidebar to show the new chat (if chats were visible)
-        setRefreshSidebarKey(prev => !prev);
-    } catch(error: any) {
-        console.error("Error creating new chat:", error);
-        alert(`Failed to create a new chat: ${error.message}`);
-    } finally {
-        setIsLoading(false);
-    }
+  const handleNewChat = () => {
+    handleDeselect(); 
+    setRefreshSidebarKey(prev => !prev);
   };
 
-  /**
-   * Handles the complete upload workflow: Storage, Backend AI processing, and Database records.
-   */
-  const handleUploadSuccess = async (backendDocId: string, file: File) => {
-    if (!user) return;
+  const handleUploadSuccess = async (backendDocId: string, backendChatId: string, file: File) => {
     try {
-      const filePath = `${user.id}/${backendDocId}-${file.name}`;
+      // Create a local URL so the PDF Viewer can show it immediately without waiting for server reload
+      const localFileUrl = URL.createObjectURL(file);
 
-      const { error: uploadError } = await supabase.storage.from('user_documents').upload(filePath, file);
-      if (uploadError) throw uploadError;
-
-      const { error: docError } = await supabase.from('documents').insert({
-        id: backendDocId,
-        user_id: user.id,
-        title: file.name,
-        file_url: filePath,
-        file_size: file.size,
-      });
-      if (docError) throw docError;
-      
-      const { data: chatData, error: chatError } = await supabase.from('chats').insert({ 
-        user_id: user.id, 
-        document_id: backendDocId, 
-        title: file.name 
-      }).select().single();
-      if (chatError) throw chatError;
-
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage.from('user_documents').createSignedUrl(filePath, 3600);
-      if (signedUrlError) throw signedUrlError;
-
-      // Set the newly uploaded document as the active one
-      setAiDocId(backendDocId);
+      // Set the workspace state with the REAL data from your PostgreSQL backend
+      setAiDocId(backendDocId); 
       setSelectedDocumentId(backendDocId);
-      setDocumentUrl(signedUrlData.signedUrl);
-      setSelectedChatId(chatData.id);
+      setDocumentUrl(localFileUrl);
+      setSelectedChatId(backendChatId); 
       setMessages([]);
       setAiMode('chat');
-      setRefreshSidebarKey(prev => !prev); // Refresh sidebar to show the new document
+      setRefreshSidebarKey(prev => !prev); 
     } catch (error) {
-      console.error("Error during upload and database insertion:", error);
-      alert("An error occurred while saving the document.");
+      console.error("Error setting up local document view:", error);
+      alert("An error occurred displaying the document.");
     }
   };
 
-  /**
-   * Sends a user's question to the backend and saves the conversation to Supabase.
-   */
   const handleSendMessage = async (question: string) => {
     if (!aiDocId || !selectedChatId || isLoading) return;
 
@@ -222,12 +146,17 @@ function Workspace() {
     setIsLoading(true);
 
     try {
-      await supabase.from('messages').insert({ chat_id: selectedChatId, role: 'user', content: question });
+      // The backend queryDocument route saves BOTH the user message and the assistant message to Postgres automatically
+      const result = await queryDocument(aiDocId, selectedChatId, question);
       
-      const result = await queryDocument(aiDocId, question);
-      const assistantMessage: Message = { id: `assistant-${Date.now()}`, role: 'assistant', content: result.answer, timestamp: new Date() };
+      const assistantMessage: Message = { 
+        id: `assistant-${Date.now()}`, 
+        role: 'assistant', 
+        content: result.answer, 
+        timestamp: new Date(),
+        sources: result.sources 
+      };
       
-      await supabase.from('messages').insert({ chat_id: selectedChatId, role: 'assistant', content: result.answer });
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Error querying document:", error);
@@ -251,7 +180,8 @@ function Workspace() {
   };
 
   /**
-   * Sends highlighted text to the backend and saves the summary to the current chat.
+   * Sends highlighted text to the backend. Currently summarizeText doesn't save to postgres,
+   * but it functions within the UI session.
    */
   const handleRequestSummary = async (description: string) => {
     if (!highlightedText || !selectedChatId || isLoading) return;
@@ -265,8 +195,7 @@ function Workspace() {
       const summaryContent = `**Summary of your selection:**\n\n${result.summary}`;
       const summaryMessage: Message = { id: `summary-${Date.now()}`, role: 'assistant', content: summaryContent, timestamp: new Date() };
       
-      await supabase.from('messages').insert({ chat_id: selectedChatId, role: 'assistant', content: summaryContent });
-      // Replace the "Summarizing..." message with the actual summary
+      // Update UI only - you can add a post to a saveMessage endpoint later if you want summaries saved in postgres
       setMessages(prev => [...prev.slice(0, -1), summaryMessage]);
     } catch (error) {
       console.error("Error summarizing text:", error);

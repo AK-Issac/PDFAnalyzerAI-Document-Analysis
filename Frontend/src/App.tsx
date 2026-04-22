@@ -8,7 +8,8 @@ import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Workspace from './pages/Workspace';
 import Profile from './pages/Profile';
-import Subscription from './pages/Subscription'; // <-- 1. IMPORT THE NEW PAGE
+import Subscription from './pages/Subscription';
+import Onboarding from './pages/Onboarding';
 
 function App() {
   return (
@@ -20,11 +21,21 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
 
-            {/* --- Protected Routes --- */}
+            {/* --- Onboarding (protected, but allowed before is_onboarded) --- */}
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <Onboarding />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* --- Protected Routes (requires auth + completed onboarding) --- */}
             <Route
               path="/workspace"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireOnboarded>
                   <Workspace />
                 </ProtectedRoute>
               }
@@ -32,17 +43,15 @@ function App() {
             <Route
               path="/profile"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireOnboarded>
                   <Profile />
                 </ProtectedRoute>
               }
             />
-            
-            {/* --- 2. ADD THE NEW ROUTE FOR THE UPGRADE PAGE --- */}
             <Route
               path="/upgrade"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireOnboarded>
                   <Subscription />
                 </ProtectedRoute>
               }

@@ -5,8 +5,9 @@ import { uploadPdf } from '../services/apiService';
 
 interface DocumentViewerProps {
   documentUrl: string | null;
-  onUploadSuccess: (docId: string, file: File) => void;
+  onUploadSuccess: (docId: string, chatId: string, file: File) => void; 
   onSummarize: (selectedText: string) => void; 
+  targetPage?: number | null; 
 }
 
 function DocumentViewer({ documentUrl, onUploadSuccess, onSummarize }: DocumentViewerProps) {
@@ -31,7 +32,7 @@ function DocumentViewer({ documentUrl, onUploadSuccess, onSummarize }: DocumentV
     setIsUploading(true);
     try {
       const result = await uploadPdf(file);
-      onUploadSuccess(result.doc_id, file);
+      onUploadSuccess(result.doc_id, result.chat_id, file);
     } catch (error) {
       console.error("Error uploading file:", error);
       alert("Failed to upload the file.");

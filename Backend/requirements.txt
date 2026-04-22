@@ -18,3 +18,9 @@ PyMuPDF
 # Vector store and embeddings
 faiss-cpu
 tiktoken
+
+# Authentication
+PyJWT
+
+# Authentication
+PyJWT
