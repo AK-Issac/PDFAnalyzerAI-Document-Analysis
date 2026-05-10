@@ -10,7 +10,7 @@ openai
 langchain
 langchain-openai
 langchain-text-splitters
-langchain-community     # <-- ADD THIS LINE
+langchain-community
 
 # PDF text extraction
 PyMuPDF
@@ -21,6 +21,7 @@ tiktoken
 
 # Authentication
 PyJWT
+werkzeug
 
-# Authentication
-PyJWT
+# Stripe Billing
+stripe

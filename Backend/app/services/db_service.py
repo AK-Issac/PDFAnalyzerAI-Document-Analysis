@@ -57,6 +57,69 @@ def update_user_profile(user_id: str, first_name: str, last_name: str, company: 
     finally:
         conn.close()
 
+def get_user_profile(user_id: str) -> dict:
+    """Retrieves a user's full profile data."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute("""
+                SELECT id, email, first_name, last_name, company, role, bio, is_onboarded, tier 
+                FROM users 
+                WHERE id = %s
+            """, (user_id,))
+            return cursor.fetchone()
+    finally:
+        conn.close()
+
+# --- USAGE & LIMITS ---
+
+def log_usage(user_id: str, action_type: str):
+    """Logs an action performed by the user for billing/limits."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            log_id = str(uuid.uuid4())
+            cursor.execute("""
+                INSERT INTO usage_logs (id, user_id, action_type)
+                VALUES (%s, %s, %s)
+            """, (log_id, user_id, action_type))
+        conn.commit()
+    finally:
+        conn.close()
+
+def get_user_usage(user_id: str, tier: str) -> dict:
+    """Calculates current document and action counts based on tier rules."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            if tier == 'free':
+                # Free tier is absolute total
+                cursor.execute("SELECT COUNT(*) FROM documents WHERE user_id = %s", (user_id,))
+                doc_count = cursor.fetchone()[0]
+                
+                cursor.execute("SELECT COUNT(*) FROM usage_logs WHERE user_id = %s", (user_id,))
+                action_count = cursor.fetchone()[0]
+            else:
+                # Pro/Business tier is per month
+                cursor.execute("""
+                    SELECT COUNT(*) FROM documents 
+                    WHERE user_id = %s AND created_at >= date_trunc('month', CURRENT_DATE)
+                """, (user_id,))
+                doc_count = cursor.fetchone()[0]
+                
+                cursor.execute("""
+                    SELECT COUNT(*) FROM usage_logs 
+                    WHERE user_id = %s AND created_at >= date_trunc('month', CURRENT_DATE)
+                """, (user_id,))
+                action_count = cursor.fetchone()[0]
+                
+            return {
+                "doc_count": doc_count,
+                "action_count": action_count
+            }
+    finally:
+        conn.close()
+
 # --- WORKSPACE & DOCUMENTS ---
 
 def save_document(doc_id: str, title: str, file_data: bytes, user_id: str, folder_id: str = None):
@@ -191,5 +254,78 @@ def get_chat_for_document(doc_id: str, user_id: str):
             if row:
                 return row['id']
             return None
+    finally:
+        conn.close()
+
+def move_document(doc_id: str, folder_id: str, user_id: str):
+    """Moves a document to a different folder (or root if folder_id is None)."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                UPDATE documents 
+                SET folder_id = %s 
+                WHERE id = %s AND user_id = %s
+            """, (folder_id, doc_id, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+def delete_folder(folder_id: str, user_id: str):
+    """Deletes a folder and all documents inside it."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Delete documents inside the folder first (since ON DELETE SET NULL is in the schema)
+            cursor.execute("DELETE FROM documents WHERE folder_id = %s AND user_id = %s", (folder_id, user_id))
+            # Then delete the folder
+            cursor.execute("DELETE FROM folders WHERE id = %s AND user_id = %s", (folder_id, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# --- STRIPE BILLING ---
+
+def get_stripe_customer_id(user_id: str) -> str | None:
+    """Retrieves the Stripe customer ID for a given user, if it exists."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT stripe_customer_id FROM users WHERE id = %s", (user_id,))
+            row = cursor.fetchone()
+            if row:
+                return row[0]
+            return None
+    finally:
+        conn.close()
+
+def save_stripe_customer_id(user_id: str, stripe_customer_id: str):
+    """Persists the Stripe customer ID onto the user record after first checkout creation."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE users SET stripe_customer_id = %s WHERE id = %s",
+                (stripe_customer_id, user_id)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+def update_user_tier(stripe_customer_id: str, new_tier: str):
+    """
+    Called exclusively by the Stripe webhook to update a user's plan.
+    This is the single source of truth for plan status — the backend never
+    trusts the frontend to report the current plan.
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE users SET tier = %s WHERE stripe_customer_id = %s",
+                (new_tier, stripe_customer_id)
+            )
+        conn.commit()
     finally:
         conn.close()

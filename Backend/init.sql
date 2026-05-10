@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
     company VARCHAR(255),
     role VARCHAR(255),
     bio TEXT,
+    tier VARCHAR(50) DEFAULT 'free',
+    stripe_customer_id VARCHAR(255) UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -49,5 +51,13 @@ CREATE TABLE IF NOT EXISTS messages (
     role VARCHAR(50) NOT NULL, -- 'user' or 'assistant'
     content TEXT NOT NULL,
     sources JSONB, -- Storing the citation sources as JSON
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create Usage Logs table
+CREATE TABLE IF NOT EXISTS usage_logs (
+    id VARCHAR(255) PRIMARY KEY,
+    user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+    action_type VARCHAR(50), -- 'query', 'summarize', 'extract'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

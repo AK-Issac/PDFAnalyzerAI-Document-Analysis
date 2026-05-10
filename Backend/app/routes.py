@@ -2,13 +2,19 @@ import os
 import uuid
 import io
 import jwt
+import stripe
 from functools import wraps
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# IMPORT THE NEW DB SERVICE HERE:
 from .services import pdf_processor, vector_store, ai_service, db_service
+
+# --- STRIPE CONFIGURATION ---
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET")
+STRIPE_PRO_PRICE_ID = os.environ.get("STRIPE_PRO_PRICE_ID")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 
 api_blueprint = Blueprint('api', __name__)
 
@@ -127,11 +133,54 @@ def onboard_user(current_user_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@api_blueprint.route('/user/me', methods=['GET'])
+@auth_required
+def get_me(current_user_id):
+    try:
+        user = db_service.get_user_profile(current_user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+            
+        tier = user.get('tier', 'free')
+        usage = db_service.get_user_usage(current_user_id, tier)
+        
+        # Define limits based on tier
+        limits = {
+            "free": {"doc_limit": 5, "action_limit": 30},
+            "pro": {"doc_limit": 150, "action_limit": 1500},
+            "business": {"doc_limit": -1, "action_limit": -1} # -1 for unlimited
+        }
+        
+        tier_limits = limits.get(tier, limits["free"])
+        
+        user_data = dict(user)
+        user_data['usage'] = usage
+        user_data['limits'] = tier_limits
+        
+        return jsonify(user_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # --- DATA ENDPOINTS ---
 
 @api_blueprint.route('/upload', methods=['POST'])
 @auth_required
 def upload_file(current_user_id):
+    # 0. Check Limits
+    user = db_service.get_user_profile(current_user_id)
+    tier = user.get('tier', 'free')
+    usage = db_service.get_user_usage(current_user_id, tier)
+    
+    limits = {
+        "free": {"doc_limit": 5, "action_limit": 30},
+        "pro": {"doc_limit": 150, "action_limit": 1500},
+        "business": {"doc_limit": -1, "action_limit": -1}
+    }
+    tier_limits = limits.get(tier, limits["free"])
+    
+    if tier_limits["doc_limit"] != -1 and usage["doc_count"] >= tier_limits["doc_limit"]:
+        return jsonify({"error": "Document limit reached", "limit_type": "documents"}), 403
+
     if 'file' not in request.files:
         return jsonify({"error": "No file"}), 400
 
@@ -200,15 +249,32 @@ def query_document(current_user_id):
     if not doc_id or not question or not chat_id:
         return jsonify({"error": "Missing fields (doc_id, chat_id, or question)"}), 400
 
+    # 0. Check Limits
+    user = db_service.get_user_profile(current_user_id)
+    tier = user.get('tier', 'free')
+    usage = db_service.get_user_usage(current_user_id, tier)
+    
+    limits = {
+        "free": {"doc_limit": 5, "action_limit": 30},
+        "pro": {"doc_limit": 150, "action_limit": 1500},
+        "business": {"doc_limit": -1, "action_limit": -1}
+    }
+    tier_limits = limits.get(tier, limits["free"])
+    
+    if tier_limits["action_limit"] != -1 and usage["action_count"] >= tier_limits["action_limit"]:
+        return jsonify({"error": "Action limit reached", "limit_type": "actions"}), 403
+
     try:
         # 1. SAVE USER'S QUESTION TO POSTGRES
         db_service.save_message(chat_id=chat_id, role='user', content=question, user_id=current_user_id)
+        db_service.log_usage(user_id=current_user_id, action_type='query')
 
         # 2. GET AI ANSWER FROM ISOLATED FAISS DB
         relevant_chunks = vector_store.retrieve_relevant_chunks(doc_id, current_user_id, question)
         answer = ai_service.get_answer_from_llm(relevant_chunks, question)
 
-        sources = [
+        # Build all possible sources
+        all_sources = [
             {
                 "text": chunk.page_content,
                 "page": chunk.metadata.get("page"),
@@ -216,6 +282,20 @@ def query_document(current_user_id):
             }
             for chunk in relevant_chunks
         ]
+        
+        # Filter sources to only include pages explicitly mentioned by the LLM (e.g. "Page 4")
+        # to avoid showing a bunch of unrelated pages to the user.
+        import re
+        cited_pages = set()
+        # Find patterns like "Page X", "page X", "(Page X)"
+        matches = re.findall(r'[Pp]age\s+(\d+)', answer)
+        for match in matches:
+            cited_pages.add(int(match))
+            
+        if cited_pages:
+            sources = [s for s in all_sources if s["page"] in cited_pages]
+        else:
+            sources = all_sources
 
         # 3. SAVE AI'S ANSWER AND SOURCES TO POSTGRES
         db_service.save_message(chat_id=chat_id, role='assistant', content=answer, user_id=current_user_id, sources=sources)
@@ -242,7 +322,23 @@ def summarize_text(current_user_id):
     if not text:
         return jsonify({"error": "Text required"}), 400
 
+    # 0. Check Limits
+    user = db_service.get_user_profile(current_user_id)
+    tier = user.get('tier', 'free')
+    usage = db_service.get_user_usage(current_user_id, tier)
+    
+    limits = {
+        "free": {"doc_limit": 5, "action_limit": 30},
+        "pro": {"doc_limit": 150, "action_limit": 1500},
+        "business": {"doc_limit": -1, "action_limit": -1}
+    }
+    tier_limits = limits.get(tier, limits["free"])
+    
+    if tier_limits["action_limit"] != -1 and usage["action_count"] >= tier_limits["action_limit"]:
+        return jsonify({"error": "Action limit reached", "limit_type": "actions"}), 403
+
     summary = ai_service.summarize_text(text, description)
+    db_service.log_usage(user_id=current_user_id, action_type='summarize')
 
     return jsonify({"summary": summary}), 200
 
@@ -315,5 +411,134 @@ def serve_document(current_user_id, doc_id):
             as_attachment=False,
             download_name=f"{doc_id}.pdf"
         )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@api_blueprint.route('/document/<doc_id>/move', methods=['PUT'])
+@auth_required
+def move_document(current_user_id, doc_id):
+    data = request.get_json()
+    folder_id = data.get('folder_id')
+    if folder_id == 'null':
+        folder_id = None
+        
+    try:
+        db_service.move_document(doc_id, folder_id, user_id=current_user_id)
+        return jsonify({"message": "Document moved"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@api_blueprint.route('/folder/<folder_id>', methods=['DELETE'])
+@auth_required
+def delete_folder(current_user_id, folder_id):
+    try:
+        db_service.delete_folder(folder_id, user_id=current_user_id)
+        return jsonify({"message": "Folder deleted"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# --- STRIPE BILLING ENDPOINTS ---
+
+@api_blueprint.route('/billing/create-checkout-session', methods=['POST'])
+@auth_required
+def create_checkout_session(current_user_id):
+    """
+    Creates a Stripe Checkout Session for the Pro plan.
+    If the user already has a Stripe customer ID, it is reused so their
+    billing history is preserved in the Stripe dashboard.
+    """
+    try:
+        user = db_service.get_user_profile(current_user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Reuse existing Stripe customer if one exists
+        existing_customer_id = db_service.get_stripe_customer_id(current_user_id)
+
+        if existing_customer_id:
+            customer_id = existing_customer_id
+        else:
+            # Create a new Stripe customer tied to this user's email
+            customer = stripe.Customer.create(
+                email=user['email'],
+                metadata={"user_id": current_user_id}
+            )
+            customer_id = customer.id
+            db_service.save_stripe_customer_id(current_user_id, customer_id)
+
+        checkout_session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": STRIPE_PRO_PRICE_ID, "quantity": 1}],
+            mode="subscription",
+            success_url=f"{FRONTEND_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{FRONTEND_URL}/upgrade",
+        )
+
+        return jsonify({"checkout_url": checkout_session.url}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@api_blueprint.route('/billing/webhook', methods=['POST'])
+def stripe_webhook():
+    """
+    The authoritative Stripe webhook handler. This is the ONLY place
+    that updates a user's tier. It verifies the Stripe-Signature header
+    to prevent spoofed requests from granting free upgrades.
+    """
+    payload = request.get_data(as_text=True)
+    sig_header = request.headers.get('Stripe-Signature')
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError:
+        return jsonify({"error": "Invalid payload"}), 400
+    except stripe.error.SignatureVerificationError:
+        return jsonify({"error": "Invalid signature"}), 400
+
+    event_type = event['type']
+    data_object = event['data']['object']
+
+    # A subscription became active (new subscriber or reactivation)
+    if event_type in ('customer.subscription.created', 'customer.subscription.updated'):
+        status = data_object.get('status')
+        customer_id = data_object.get('customer')
+        if status == 'active':
+            db_service.update_user_tier(customer_id, 'pro')
+        elif status in ('canceled', 'unpaid', 'past_due'):
+            db_service.update_user_tier(customer_id, 'free')
+
+    # Subscription was explicitly canceled
+    elif event_type == 'customer.subscription.deleted':
+        customer_id = data_object.get('customer')
+        db_service.update_user_tier(customer_id, 'free')
+
+    return jsonify({"status": "ok"}), 200
+
+
+@api_blueprint.route('/billing/portal', methods=['POST'])
+@auth_required
+def create_portal_session(current_user_id):
+    """
+    Creates a Stripe Customer Portal session so the user can manage
+    their subscription (cancel, update payment method, view invoices)
+    without any custom-built UI on our side.
+    """
+    try:
+        customer_id = db_service.get_stripe_customer_id(current_user_id)
+        if not customer_id:
+            return jsonify({"error": "No billing account found. Please subscribe first."}), 404
+
+        portal_session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=f"{FRONTEND_URL}/profile",
+        )
+        return jsonify({"portal_url": portal_session.url}), 200
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
