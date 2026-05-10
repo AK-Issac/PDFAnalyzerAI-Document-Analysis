@@ -70,6 +70,19 @@ export async function onboardUser(data: {
   return response.json();
 }
 
+export async function getUserProfile() {
+  const response = await fetch(`${BASE_URL}/user/me`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || 'Failed to fetch profile');
+  }
+  return response.json();
+}
+
 // --- DATA SERVICES ---
 
 export async function uploadPdf(file: File, folder_id: string | null = null) {
@@ -86,7 +99,8 @@ export async function uploadPdf(file: File, folder_id: string | null = null) {
   });
 
   if (!response.ok) {
-    throw new Error('Upload failed');
+    const err = await response.json();
+    throw new Error(err.error || 'Upload failed');
   }
   return response.json();
 }
@@ -99,7 +113,8 @@ export async function queryDocument(doc_id: string, chat_id: string, question: s
   });
 
   if (!response.ok) {
-    throw new Error('Query failed');
+    const err = await response.json();
+    throw new Error(err.error || 'Query failed');
   }
   return response.json();
 }
@@ -112,7 +127,8 @@ export async function summarizeText(text: string, description: string) {
   });
 
   if (!response.ok) {
-    throw new Error('Summarization failed');
+    const err = await response.json();
+    throw new Error(err.error || 'Summarization failed');
   }
   return response.json();
 }
@@ -162,11 +178,52 @@ export async function deleteDocument(doc_id: string) {
   return response.json();
 }
 
+export async function moveDocument(doc_id: string, folder_id: string | null) {
+  const response = await fetch(`${BASE_URL}/document/${doc_id}/move`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ folder_id: folder_id || 'null' })
+  });
+  if (!response.ok) throw new Error('Failed to move document');
+  return response.json();
+}
+
+export async function deleteFolder(folder_id: string) {
+  const response = await fetch(`${BASE_URL}/folder/${folder_id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(false)
+  });
+  if (!response.ok) throw new Error('Failed to delete folder');
+  return response.json();
+}
+
 // Helper to get PDF URL
 export function getDocumentUrl(doc_id: string) {
-  // It's a bit tricky to pass Auth Headers natively in an `<iframe>` src or `<object>` data.
-  // Often it's done by returning the raw Blob. If you just pass the URL, the browser won't attach the JWT.
-  // For a portfolio, URL query parameters (e.g. ?token=...) or downloading as Blob works. 
-  // Let's assume we rely on an object element and see if it works without query params context or if we must change DocumentViewer later.
   return `${BASE_URL}/document/${doc_id}`;
+}
+
+// --- STRIPE BILLING ---
+
+export async function createCheckoutSession(): Promise<{ checkout_url: string }> {
+  const response = await fetch(`${BASE_URL}/billing/create-checkout-session`, {
+    method: 'POST',
+    headers: getAuthHeaders(false),
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || 'Failed to create checkout session');
+  }
+  return response.json();
+}
+
+export async function createPortalSession(): Promise<{ portal_url: string }> {
+  const response = await fetch(`${BASE_URL}/billing/portal`, {
+    method: 'POST',
+    headers: getAuthHeaders(false),
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error || 'Failed to create portal session');
+  }
+  return response.json();
 }

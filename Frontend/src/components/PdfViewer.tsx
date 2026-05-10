@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { Loader2, AlertCircle, MessageSquare, Highlighter } from 'lucide-react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -28,6 +28,7 @@ interface PdfViewerProps {
   onAddAnnotation: (annotation: Annotation) => void;
   onPageCountChange: (count: number) => void;
   onPageChange: (page: number) => void;
+  targetSource?: { page: number; text: string } | null;
 }
 
 // --- SELECTION POP-UP COMPONENT ---
@@ -52,7 +53,6 @@ function SelectionPopup({ position, onAction }: SelectionPopupProps) {
 
   return (
     <div
-      // CHANGED: Position is now 'fixed' to align with viewport mouse coordinates
       style={{ top: position.top, left: position.left }}
       className="fixed z-[100] -translate-x-1/2 -translate-y-full mb-2 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 flex items-center gap-1 animate-in fade-in zoom-in duration-200"
       onMouseUp={stopPropagation}
@@ -93,13 +93,12 @@ function SelectionPopup({ position, onAction }: SelectionPopupProps) {
           </button>
         </div>
       )}
-      {/* Arrow pointing down to cursor */}
       <div className="absolute left-1/2 -bottom-2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-white dark:border-t-slate-800 drop-shadow-sm"></div>
     </div>
   );
 }
 
-function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountChange, onPageChange }: PdfViewerProps) {
+function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountChange, onPageChange, targetSource }: PdfViewerProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [popup, setPopup] = useState<{ top: number; left: number } | null>(null);
   
@@ -107,7 +106,6 @@ function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountCha
   const viewerRef = useRef<HTMLDivElement>(null);
 
   // MEMOIZE THE FILE PROP TO PREVENT INFINITE RELOADS
-  // We type it as 'any' because react-pdf types don't officially surface httpHeaders, but pdfjs requires it
   const fileProp = React.useMemo<any>(() => {
     return {
       url: fileUrl,
@@ -120,7 +118,42 @@ function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountCha
     onPageCountChange(numPages);
   };
 
-  // ... (rest unchanged) ...
+  useEffect(() => {
+    if (targetSource && targetSource.page) {
+      const pageElement = document.querySelector(`.react-pdf__Page[data-page-number="${targetSource.page}"]`);
+      if (pageElement) {
+        // First, ensure the page is in view so react-pdf renders its text layer
+        pageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Then try to find the specific mark element after a slight delay to allow text layer to render
+        setTimeout(() => {
+           const markElement = pageElement.querySelector('mark');
+           if (markElement) {
+             markElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+           }
+        }, 500);
+      }
+    }
+  }, [targetSource, numPages]);
+
+  // A custom text renderer to highlight the exact text chunk from the AI
+  const textRenderer = useCallback((textItem: any) => {
+    if (!targetSource || !targetSource.text) return textItem.str;
+    
+    // Normalize text by removing extra spaces and making lowercase for robust matching
+    const normalizedChunk = targetSource.text.replace(/\s+/g, ' ').toLowerCase();
+    const normalizedItem = textItem.str.replace(/\s+/g, ' ').toLowerCase();
+
+    // Strictly check if the PDF line is part of the AI's source chunk
+    // We require a minimum length to avoid highlighting random spaces or single letters
+    if (normalizedItem.length > 5 && normalizedChunk.includes(normalizedItem)) {
+      // react-pdf customTextRenderer expects a string to be injected
+      return `<mark style="background-color: rgba(234, 179, 8, 0.4); color: transparent;">${textItem.str}</mark>`;
+    }
+    
+    return textItem.str;
+  }, [targetSource]);
+
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     const selection = window.getSelection();
     
@@ -133,8 +166,6 @@ function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountCha
     // Store selection
     selectionRef.current = selection;
 
-    // CHANGED: Use ClientX/Y directly for "Mouse Position"
-    // We offset Y by -10px so the popup sits slightly above the cursor
     setPopup({
       top: e.clientY - 10,
       left: e.clientX,
@@ -147,8 +178,6 @@ function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountCha
 
     const range = selection.getRangeAt(0);
     
-    // Find the specific PDF page element (the container for the text layer)
-    // We look for .react-pdf__Page because that's the reference frame for the coordinate system
     const pageElement = range.startContainer.parentElement?.closest('.react-pdf__Page') as HTMLElement;
     
     if (!pageElement) {
@@ -157,13 +186,9 @@ function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountCha
     }
 
     const pageNumber = Number(pageElement.getAttribute('data-page-number'));
-    const pageRect = pageElement.getBoundingClientRect(); // Viewport coordinates of the page
+    const pageRect = pageElement.getBoundingClientRect(); 
     const scale = zoom / 100;
 
-    // CHANGED: Improve coordinate math
-    // 1. We get all rects associated with the selection (handles multi-line)
-    // 2. We subtract the PAGE's left/top from the SELECTION's left/top.
-    // 3. We divide by scale to get the original PDF point coordinates.
     const annotationRects: AnnotationRect[] = Array.from(range.getClientRects()).map(rect => ({
       x: (rect.left - pageRect.left) / scale,
       y: (rect.top - pageRect.top) / scale,
@@ -195,7 +220,6 @@ function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountCha
       onClick={() => setPopup(null)} 
     >
       <div className="p-4 md:p-8 flex flex-col items-center min-h-full">
-        {/* Popup is now fixed, so it lives outside the relative flow visually */}
         {popup && <SelectionPopup position={popup} onAction={handlePopupAction} />}
         
         <Document
@@ -217,28 +241,27 @@ function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountCha
           {Array.from(new Array(numPages || 0), (_, index) => {
             const pageNumber = index + 1;
             const pageAnnotations = annotations.filter(a => a.page === pageNumber);
+            const isTargetPage = targetSource?.page === pageNumber;
 
             return (
-              // CHANGED: Added relative positioning here to strictly bound the absolute children
-              <div key={`page_container_${pageNumber}`} className="relative group mb-6">
+              <div key={`page_container_${pageNumber}`} className={`relative group mb-6 transition-all duration-1000 ${isTargetPage ? 'ring-4 ring-indigo-400 shadow-xl shadow-indigo-200 dark:shadow-indigo-900/50 scale-[1.01]' : ''}`}>
                 <Page
                   key={`page_${pageNumber}`}
                   pageNumber={pageNumber}
                   scale={zoom / 100}
                   className="shadow-md"
-                  renderAnnotationLayer={false} // Disable default annotations if they interfere, enable if needed
+                  renderAnnotationLayer={false} 
                   renderTextLayer={true}
+                  customTextRenderer={isTargetPage ? textRenderer : undefined}
                 />
                 
                 {/* --- RENDER ANNOTATIONS LAYER --- */}
-                {/* This div matches the exact size/position of the Page component */}
                 <div className="absolute inset-0 pointer-events-none">
                   {pageAnnotations.map(annotation => (
                     <div key={annotation.id}>
                       {annotation.rects.map((rect, i) => {
                         return (
                           <React.Fragment key={`${annotation.id}-${i}`}>
-                            {/* The Highlight Box */}
                             <div
                               style={{
                                 position: 'absolute',
@@ -248,23 +271,21 @@ function PdfViewer({ fileUrl, zoom, annotations, onAddAnnotation, onPageCountCha
                                 height: `${rect.height * (zoom / 100)}px`,
                                 backgroundColor: annotation.type === 'highlight' ? 'rgba(252, 211, 77, 0.3)' : 'rgba(14, 165, 233, 0.2)',
                                 borderBottom: annotation.type === 'note' ? '2px solid rgba(14, 165, 233, 0.8)' : 'none',
-                                mixBlendMode: 'multiply', // Helps text show through clearer
-                                pointerEvents: 'auto', // Allows clicking the highlight later if needed
+                                mixBlendMode: 'multiply',
+                                pointerEvents: 'auto',
                               }}
                             />
                             
-                            {/* The Note Icon (Only render once per annotation) */}
                             {annotation.type === 'note' && i === 0 && (
                                <div
                                  className="absolute z-20 group/icon cursor-pointer"
                                  style={{ 
-                                   left: `${(rect.x + rect.width) * (zoom / 100)}px`, // Place at end of highlight
+                                   left: `${(rect.x + rect.width) * (zoom / 100)}px`,
                                    top: `${rect.y * (zoom / 100) - 10}px`,
                                    pointerEvents: 'auto' 
                                  }}
                                >
                                  <MessageSquare className="w-5 h-5 text-white bg-sky-500 rounded-full p-1 shadow-sm transform hover:scale-110 transition-transform" />
-                                 {/* Tooltip */}
                                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max max-w-xs p-2 bg-slate-800 text-white text-xs rounded shadow-lg opacity-0 group-hover/icon:opacity-100 transition-opacity pointer-events-none z-30">
                                    {annotation.noteContent}
                                  </div>

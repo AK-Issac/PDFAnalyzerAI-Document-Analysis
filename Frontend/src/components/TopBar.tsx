@@ -9,17 +9,23 @@ import {
   Globe,
   RefreshCw,
   Crown,
-  Bell,
   Search,
   User,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext'; // Ensure this path is correct for your project
+import { useTranslation } from 'react-i18next';
 
 function TopBar() {
+  const { t, i18n } = useTranslation();
   // Use the theme context to get darkMode state and the toggle function
   const { darkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
+
+  const toggleLanguage = () => {
+    const newLang = i18n.language === 'en' ? 'fr' : 'en';
+    i18n.changeLanguage(newLang);
+  };
 
   return (
     <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-6">
@@ -88,10 +94,12 @@ function TopBar() {
         <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
 
         <button
-          title="Language"
-          className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
+          title="Toggle Language"
+          onClick={toggleLanguage}
+          className="px-3 py-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 shadow-sm"
         >
-          <Globe className="w-5 h-5" />
+          <Globe className="w-4 h-4 text-slate-500" />
+          <span className="uppercase tracking-wide">{i18n.language}</span>
         </button>
 
         <button
@@ -109,14 +117,6 @@ function TopBar() {
           <RefreshCw className="w-5 h-5" />
         </button>
 
-        <button
-          title="Notifications"
-          className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors relative"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-        </button>
-
         <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
 
         <button 
@@ -124,7 +124,7 @@ function TopBar() {
           className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg hover:from-amber-600 hover:to-amber-700 transition-all shadow-sm"
         >
           <Crown className="w-4 h-4" />
-          <span className="text-sm font-medium">Upgrade</span>
+          <span className="text-sm font-medium">{t('topbar.upgrade')}</span>
         </button>
 
 

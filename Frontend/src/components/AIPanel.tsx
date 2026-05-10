@@ -1,9 +1,10 @@
 // src/components/AIPanel.tsx
 
 import { MessageSquare, Send, Lightbulb, FileText, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Message } from '../pages/Workspace';
 import ReactMarkdown from 'react-markdown'; // A good library for rendering AI responses
+import { useTranslation } from 'react-i18next';
 
 export type AIMode = 'chat' | 'summarize' | 'notes';
 
@@ -16,10 +17,21 @@ interface AIPanelProps {
   mode: AIMode;
   onModeChange: (mode: AIMode) => void;
   highlightedText: string;
+  onSourceClick?: (page: number, text: string) => void;
 }
 
-function AIPanel({ documentId, messages, onSendMessage, onRequestSummary, isLoading, mode, onModeChange, highlightedText }: AIPanelProps) {
+function AIPanel({ documentId, messages, onSendMessage, onRequestSummary, isLoading, mode, onModeChange, highlightedText, onSourceClick }: AIPanelProps) {
   const [inputMessage, setInputMessage] = useState('');
+  const { t } = useTranslation();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isLoading]);
 
   // Clear input when switching modes
   useEffect(() => {
@@ -43,11 +55,11 @@ function AIPanel({ documentId, messages, onSendMessage, onRequestSummary, isLoad
           <div className="p-4 border-t border-slate-200 dark:border-slate-700">
             <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
               <Lightbulb className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-              <h4 className="font-semibold text-slate-800 dark:text-slate-200">Summarize Selection</h4>
+              <h4 className="font-semibold text-slate-800 dark:text-slate-200">{t('aipanel.summarize_title')}</h4>
               {highlightedText ? (
-                <p className="text-sm text-slate-500 dark:text-slate-400">Selection captured! Add an optional request below and press Send.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t('aipanel.selection_captured')}</p>
               ) : (
-                <p className="text-sm text-slate-500 dark:text-slate-400">Please highlight a section of the document to summarize it.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t('aipanel.select_text')}</p>
               )}
             </div>
             <div className="relative mt-4">
@@ -55,7 +67,7 @@ function AIPanel({ documentId, messages, onSendMessage, onRequestSummary, isLoad
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                placeholder="Optional: What should I focus on?"
+                placeholder={t('aipanel.what_to_focus')}
                 className="w-full p-2 pr-10 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-slate-500 dark:focus:ring-slate-400 outline-none"
                 disabled={isLoading || !highlightedText}
               />
@@ -74,7 +86,7 @@ function AIPanel({ documentId, messages, onSendMessage, onRequestSummary, isLoad
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                placeholder="Ask about this document..."
+                placeholder={t('aipanel.ask_question')}
                 className="w-full p-2 pr-10 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-slate-500 dark:focus:ring-slate-400 outline-none"
                 disabled={isLoading}
               />
@@ -93,17 +105,17 @@ function AIPanel({ documentId, messages, onSendMessage, onRequestSummary, isLoad
         <aside className="w-96 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 flex items-center justify-center">
             <div className="text-center px-6">
                 <MessageSquare className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">AI Assistant</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Upload a document to begin.</p>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{t('aipanel.assistant_title')}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t('aipanel.upload_prompt')}</p>
             </div>
         </aside>
     );
   }
 
   const modeButtons = [
-      { id: 'chat', icon: MessageSquare, label: 'Chat' },
-      { id: 'summarize', icon: Lightbulb, label: 'Summarize' },
-      { id: 'notes', icon: FileText, label: 'Notes' },
+      { id: 'chat', icon: MessageSquare, label: t('aipanel.chat') },
+      { id: 'summarize', icon: Lightbulb, label: t('aipanel.summarize') },
+      { id: 'notes', icon: FileText, label: t('aipanel.notes') },
   ];
 
   return (
@@ -140,6 +152,24 @@ function AIPanel({ documentId, messages, onSendMessage, onRequestSummary, isLoad
             }`}>
               {/* Using ReactMarkdown to render **bold** text from the AI */}
               <ReactMarkdown>{message.content}</ReactMarkdown>
+              
+              {/* Render sources if available */}
+              {message.sources && message.sources.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-slate-300 dark:border-slate-600 flex flex-wrap gap-2">
+                  <span className="text-xs font-semibold opacity-70 w-full mb-1">{t('aipanel.sources_label')}</span>
+                  {message.sources.map((source: any, idx: number) => (
+                    <button
+                      key={idx}
+                      onClick={() => onSourceClick && onSourceClick(source.page, source.text)}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/50 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md text-xs transition-colors shadow-sm"
+                      title={source.text}
+                    >
+                      <FileText className="w-3.5 h-3.5 text-indigo-500" />
+                      {t('aipanel.page')} {source.page}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -150,6 +180,7 @@ function AIPanel({ documentId, messages, onSendMessage, onRequestSummary, isLoad
                 </div>
             </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       {renderPanelContent()}

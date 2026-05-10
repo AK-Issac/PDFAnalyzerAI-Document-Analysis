@@ -7,10 +7,11 @@ interface DocumentViewerProps {
   documentUrl: string | null;
   onUploadSuccess: (docId: string, chatId: string, file: File) => void; 
   onSummarize: (selectedText: string) => void; 
-  targetPage?: number | null; 
+  targetSource?: { page: number; text: string } | null;
+  onDocumentLimitReached?: () => void;
 }
 
-function DocumentViewer({ documentUrl, onUploadSuccess, onSummarize }: DocumentViewerProps) {
+function DocumentViewer({ documentUrl, onUploadSuccess, onSummarize, targetSource, onDocumentLimitReached }: DocumentViewerProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,13 +34,20 @@ function DocumentViewer({ documentUrl, onUploadSuccess, onSummarize }: DocumentV
     try {
       const result = await uploadPdf(file);
       onUploadSuccess(result.doc_id, result.chat_id, file);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading file:", error);
-      alert("Failed to upload the file.");
+      if (error.message && (error.message.includes('limit') || error.message.includes('Limit'))) {
+        // Notify Workspace to open the UpgradeModal instead of a browser alert
+        onDocumentLimitReached?.();
+      } else {
+        alert('Failed to upload the file. Please try again.');
+      }
     } finally {
       setIsUploading(false);
+      // Reset input so the same file can be re-selected after an error
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  }, [onUploadSuccess]);
+  }, [onUploadSuccess, onDocumentLimitReached]);
 
   const handleUploadClick = () => fileInputRef.current?.click();
   
@@ -120,6 +128,7 @@ function DocumentViewer({ documentUrl, onUploadSuccess, onSummarize }: DocumentV
         onAddAnnotation={handleAddAnnotation}
         onPageCountChange={setTotalPages}
         onPageChange={setCurrentPage}
+        targetSource={targetSource}
       />
     </main>
   );

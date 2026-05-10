@@ -12,9 +12,10 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
-  Trash2, // Import the delete icon
+  Trash2,
 } from 'lucide-react';
-import { fetchWorkspace, createFolder, deleteDocument } from '../services/apiService';
+import { fetchWorkspace, createFolder, deleteDocument, moveDocument, deleteFolder } from '../services/apiService';
+import { useTranslation } from 'react-i18next';
 
 // --- DATA TYPES ---
 type FolderType = {
@@ -37,11 +38,12 @@ interface SidebarProps {
   onSelectDocument: (id: string) => void;
   onNewChat: () => void;
   refreshKey: boolean;
-  onDeleteDocument: () => void; // Add a handler for when a document is deleted
+  onDeleteDocument: () => void;
 }
 
 function Sidebar({ selectedDocument, onSelectDocument, onNewChat, refreshKey, onDeleteDocument }: SidebarProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // State for raw data from Postgres via API
   const [folders, setFolders] = useState<FolderType[]>([]);
@@ -84,26 +86,56 @@ function Sidebar({ selectedDocument, onSelectDocument, onNewChat, refreshKey, on
     }
   };
 
-  /**
-   * Handles the deletion of a document and all its associated data.
-   */
   const handleDeleteDocument = async (docToDelete: DocumentType) => {
-    // 1. Confirm with the user
     const isConfirmed = window.confirm(`Are you sure you want to delete "${docToDelete.title}"? This action cannot be undone.`);
     if (!isConfirmed) return;
 
     try {
-      // Delete via API
       await deleteDocument(docToDelete.id);
-
-      // Refresh the UI
-      alert("Document deleted successfully.");
-      onDeleteDocument(); // Notify parent to clear the view
-      fetchData(); // Refresh the sidebar
-
+      if (selectedDocument === docToDelete.id) {
+         onDeleteDocument();
+      }
+      fetchData();
     } catch (error: any) {
       console.error("Failed to delete document:", error);
       alert(`An error occurred: ${error.message}`);
+    }
+  };
+
+  const handleDeleteFolderAction = async (folder: FolderWithDocuments) => {
+    if (folder.documents.length > 0) {
+      const input = prompt(`This folder contains ${folder.documents.length} document(s) which will also be deleted.\nType "${folder.name}" to confirm:`);
+      if (input !== folder.name) {
+        if (input !== null) alert("Folder name did not match. Deletion cancelled.");
+        return;
+      }
+    } else {
+      const confirm = window.confirm(`Delete folder "${folder.name}"?`);
+      if (!confirm) return;
+    }
+
+    try {
+      await deleteFolder(folder.id);
+      // Deselect if active document was in this folder
+      if (folder.documents.some(d => d.id === selectedDocument)) {
+         onDeleteDocument();
+      }
+      fetchData();
+    } catch (error: any) {
+      alert(`Error deleting folder: ${error.message}`);
+    }
+  };
+
+  const handleDropToFolder = async (docId: string, folderId: string | null) => {
+    // Do not move if it's already there
+    const doc = documents.find(d => d.id === docId);
+    if (!doc || doc.folder_id === folderId) return;
+
+    try {
+      await moveDocument(docId, folderId);
+      fetchData();
+    } catch (error: any) {
+      alert(`Error moving document: ${error.message}`);
     }
   };
 
@@ -134,14 +166,30 @@ function Sidebar({ selectedDocument, onSelectDocument, onNewChat, refreshKey, on
         return <div className="p-4 text-sm text-center text-slate-500 dark:text-slate-400">Your workspace is empty.</div>;
     }
     return (
-      <>
+      <div 
+        className="min-h-[100px] pb-10" 
+        onDragOver={(e) => { e.preventDefault(); }} 
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const docId = e.dataTransfer.getData('text/plain');
+          if (docId) handleDropToFolder(docId, null);
+        }}
+      >
         {structuredFolders.map(folder => (
-          <FolderItem key={folder.id} name={folder.name} expanded={expandedFolders.has(folder.id)} onToggle={() => toggleFolder(folder.id)}>
+          <FolderItem 
+            key={folder.id} 
+            folder={folder} 
+            expanded={expandedFolders.has(folder.id)} 
+            onToggle={() => toggleFolder(folder.id)}
+            onDropDoc={(docId) => handleDropToFolder(docId, folder.id)}
+            onDelete={() => handleDeleteFolderAction(folder)}
+          >
             {folder.documents.map(doc => <DocumentItem key={doc.id} document={doc} selected={selectedDocument === doc.id} onSelect={() => onSelectDocument(doc.id)} onDelete={() => handleDeleteDocument(doc)} />)}
           </FolderItem>
         ))}
         {rootDocuments.map(doc => <DocumentItem key={doc.id} document={doc} selected={selectedDocument === doc.id} onSelect={() => onSelectDocument(doc.id)} onDelete={() => handleDeleteDocument(doc)} />)}
-      </>
+      </div>
     );
   };
 
@@ -156,12 +204,12 @@ function Sidebar({ selectedDocument, onSelectDocument, onNewChat, refreshKey, on
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-2">
-            <button onClick={onNewChat} className="w-full flex items-center gap-3 px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"><Plus className="w-5 h-5" /><span className="font-medium">New Chat</span></button>
-            <button onClick={handleNewFolder} className="w-full flex items-center gap-3 px-4 py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"><FolderPlus className="w-5 h-5" /><span className="font-medium">New Folder</span></button>
+            <button onClick={onNewChat} className="w-full flex items-center gap-3 px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"><Plus className="w-5 h-5" /><span className="font-medium">{t('sidebar.new_chat')}</span></button>
+            <button onClick={handleNewFolder} className="w-full flex items-center gap-3 px-4 py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"><FolderPlus className="w-5 h-5" /><span className="font-medium">{t('sidebar.new_folder')}</span></button>
         </div>
 
         <div className="px-4 py-3 flex items-center justify-between">
-            <button className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white w-full"><ChevronDown className="w-4 h-4" /><span>WORKSPACE</span></button>
+            <button className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white w-full"><ChevronDown className="w-4 h-4" /><span>{t('sidebar.workspace')}</span></button>
             <button onClick={fetchData} title="Refresh Workspace" className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md">
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -172,7 +220,7 @@ function Sidebar({ selectedDocument, onSelectDocument, onNewChat, refreshKey, on
       <div className="p-4 border-t border-slate-200 dark:border-slate-700">
         <div onClick={() => navigate('/profile')} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
             <div className="w-9 h-9 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center"><User className="w-5 h-5 text-slate-600 dark:text-slate-300" /></div>
-            <div className="flex-1 min-w-0"><p className="text-sm font-medium text-slate-900 dark:text-white truncate">Local Dev User</p><p className="text-xs text-slate-500 dark:text-slate-400 truncate">View profile settings</p></div>
+            <div className="flex-1 min-w-0"><p className="text-sm font-medium text-slate-900 dark:text-white truncate">{t('sidebar.local_user')}</p><p className="text-xs text-slate-500 dark:text-slate-400 truncate">{t('sidebar.view_profile')}</p></div>
             <Settings className="w-5 h-5 text-slate-400" />
         </div>
       </div>
@@ -182,25 +230,66 @@ function Sidebar({ selectedDocument, onSelectDocument, onNewChat, refreshKey, on
 
 // --- SUB-COMPONENTS ---
 
-function FolderItem({ name, expanded, onToggle, children }: { name: string, expanded: boolean, onToggle: () => void, children?: React.ReactNode }) {
+function FolderItem({ 
+  folder, 
+  expanded, 
+  onToggle, 
+  onDropDoc,
+  onDelete,
+  children 
+}: { 
+  folder: FolderType, 
+  expanded: boolean, 
+  onToggle: () => void, 
+  onDropDoc: (docId: string) => void,
+  onDelete: () => void,
+  children?: React.ReactNode 
+}) {
+  const [isDragOver, setIsDragOver] = useState(false);
+
   return (
-    <div>
-      <button onClick={onToggle} className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors">
-        {expanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-        <Folder className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-        <span className="text-sm font-medium flex-1 text-left">{name}</span>
-      </button>
-      {expanded && <div className="ml-6 space-y-1 mt-1">{children}</div>}
+    <div 
+      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+        const docId = e.dataTransfer.getData('text/plain');
+        if (docId) {
+          onDropDoc(docId);
+          if (!expanded) onToggle(); // auto-expand on drop
+        }
+      }}
+      className={`rounded-lg transition-colors ${isDragOver ? 'bg-indigo-50 dark:bg-indigo-900/20 outline outline-2 outline-indigo-400' : ''}`}
+    >
+      <div className="group w-full flex items-center gap-2 pr-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">
+        <button onClick={onToggle} className="flex-1 flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-300">
+          {expanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+          <Folder className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+          <span className="text-sm font-medium flex-1 text-left">{folder.name}</span>
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-1 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-slate-700">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+      {expanded && <div className="ml-6 space-y-1 mt-1 mb-2">{children}</div>}
     </div>
   );
 }
 
-// Updated DocumentItem to include a delete button
 function DocumentItem({ document, selected, onSelect, onDelete }: { document: DocumentType, selected: boolean, onSelect: () => void, onDelete: () => void }) {
   return (
-    <div className={`group w-full flex items-center gap-2 pr-2 rounded-lg transition-colors ${selected ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+    <div 
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', document.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      className={`group w-full flex items-center gap-2 pr-2 rounded-lg transition-colors cursor-grab active:cursor-grabbing ${selected ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+    >
         <button onClick={onSelect} className={`flex-1 flex items-center gap-2 px-3 py-2 ${selected ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>
-            <FileText className="w-4 h-4" />
+            <FileText className="w-4 h-4 flex-shrink-0" />
             <span className="text-sm truncate text-left flex-1">{document.title}</span>
         </button>
         <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-1 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-slate-700">

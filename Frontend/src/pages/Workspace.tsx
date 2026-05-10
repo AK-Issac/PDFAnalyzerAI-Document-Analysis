@@ -3,6 +3,7 @@ import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
 import DocumentViewer from '../components/DocumentViewer';
 import AIPanel, { AIMode } from '../components/AIPanel';
+import UpgradeModal from '../components/UpgradeModal';
 import { queryDocument, summarizeText, fetchMessages as fetchMessagesAPI, fetchChatForDocument, getDocumentUrl } from '../services/apiService';
 
 // Define the structure for a chat message, exported for use in other components
@@ -28,6 +29,11 @@ function Workspace() {
   const [aiMode, setAiMode] = useState<AIMode>('chat');
   const [highlightedText, setHighlightedText] = useState<string>('');
   const [refreshSidebarKey, setRefreshSidebarKey] = useState(false);  
+  const [targetSource, setTargetSource] = useState<{ page: number; text: string } | null>(null);
+  const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; type: 'documents' | 'actions' | null }>({
+    open: false,
+    type: null,
+  });
   
   /**
    * EFFECT: Fetches message history from backend whenever the selectedChatId changes.
@@ -146,7 +152,6 @@ function Workspace() {
     setIsLoading(true);
 
     try {
-      // The backend queryDocument route saves BOTH the user message and the assistant message to Postgres automatically
       const result = await queryDocument(aiDocId, selectedChatId, question);
       
       const assistantMessage: Message = { 
@@ -158,10 +163,17 @@ function Workspace() {
       };
       
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error querying document:", error);
-      const errorMessage: Message = { id: `error-${Date.now()}`, role: 'assistant', content: "Sorry, an error occurred while processing your request. Please try again.", timestamp: new Date() };
-      setMessages(prev => [...prev, errorMessage]);
+      // Remove the user message we optimistically added
+      setMessages(prev => prev.filter(m => m.id !== userMessage.id));
+      // Check if this is a limit error — show the upgrade modal instead of a generic error
+      if (error.message && (error.message.includes('limit') || error.message.includes('Limit'))) {
+        setUpgradeModal({ open: true, type: 'actions' });
+      } else {
+        const errorMessage: Message = { id: `error-${Date.now()}`, role: 'assistant', content: 'Sorry, an error occurred. Please try again.', timestamp: new Date() };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -194,18 +206,26 @@ function Workspace() {
       const result = await summarizeText(highlightedText, description);
       const summaryContent = `**Summary of your selection:**\n\n${result.summary}`;
       const summaryMessage: Message = { id: `summary-${Date.now()}`, role: 'assistant', content: summaryContent, timestamp: new Date() };
-      
-      // Update UI only - you can add a post to a saveMessage endpoint later if you want summaries saved in postgres
       setMessages(prev => [...prev.slice(0, -1), summaryMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error summarizing text:", error);
-      const errorMessage: Message = { id: `error-${Date.now()}`, role: 'assistant', content: "Sorry, I couldn't summarize that selection.", timestamp: new Date() };
-      setMessages(prev => [...prev.slice(0, -1), errorMessage]);
+      // Remove the pending message
+      setMessages(prev => prev.slice(0, -1));
+      if (error.message && (error.message.includes('limit') || error.message.includes('Limit'))) {
+        setUpgradeModal({ open: true, type: 'actions' });
+      } else {
+        const errorMessage: Message = { id: `error-${Date.now()}`, role: 'assistant', content: "Sorry, I couldn't summarize that selection.", timestamp: new Date() };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } finally {
       setIsLoading(false);
       setHighlightedText('');
       setAiMode('chat');
     }
+  };
+
+  const handleSourceClick = (page: number, text: string) => {
+    setTargetSource({ page, text });
   };
 
   return (
@@ -217,12 +237,15 @@ function Workspace() {
           onSelectDocument={handleSelectDocument}
           onNewChat={handleNewChat}
           refreshKey={refreshSidebarKey}
-          onDeleteDocument={handleDeselect} // Pass the deselect handler to clear the view on delete
+          onDeleteDocument={handleDeselect}
+          onUploadLimitReached={() => setUpgradeModal({ open: true, type: 'documents' })}
         />
         <DocumentViewer 
           documentUrl={documentUrl}
           onUploadSuccess={handleUploadSuccess} 
           onSummarize={handleTextHighlight}
+          targetSource={targetSource}
+          onDocumentLimitReached={() => setUpgradeModal({ open: true, type: 'documents' })}
         />
         <AIPanel
           documentId={aiDocId}
@@ -233,8 +256,16 @@ function Workspace() {
           onRequestSummary={handleRequestSummary}
           highlightedText={highlightedText}
           isLoading={isLoading}
+          onSourceClick={handleSourceClick}
         />
       </div>
+
+      {/* Upgrade Modal — shown when document or action limits are hit */}
+      <UpgradeModal
+        isOpen={upgradeModal.open}
+        limitType={upgradeModal.type}
+        onClose={() => setUpgradeModal({ open: false, type: null })}
+      />
     </div>
   );
 }
