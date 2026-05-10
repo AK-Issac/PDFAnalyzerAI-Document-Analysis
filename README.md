@@ -15,7 +15,7 @@ PDFAnalyzerAI is a secure, multi-tenant RAG (Retrieval-Augmented Generation) sys
 
 ## 2. System Architecture
 
-![Architecture](./arch.png)
+![Architecture](./Architecture.png)
 *Note: Add a diagram showing the flow below.*
 
 The system follows a modern decoupled architecture:
