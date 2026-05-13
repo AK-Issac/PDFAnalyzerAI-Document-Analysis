@@ -8,8 +8,7 @@
 
 PDFAnalyzerAI is a secure, multi-tenant RAG (Retrieval-Augmented Generation) system engineered for high-precision PDF document analysis. It bridges the gap between raw PDF data and actionable insights using a zero-hallucination architecture and strict data isolation.
 
-![Demo](./demo.gif)
-*Note: Add a 60-second walkthrough GIF here to showcase the UI and AI interaction.*
+*still under-development*
 
 ---
 
